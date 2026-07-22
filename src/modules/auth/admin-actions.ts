@@ -3,6 +3,7 @@
 import "server-only";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/navigation";
 import { getDb } from "@/db/client";
 import { profiles, auditLog } from "@/db/schema";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
@@ -139,4 +140,48 @@ export async function setAdmin(
 
   await writeAuditLog(admin.userId, parsed.data.isAdmin ? "admin_granted" : "admin_revoked", parsed.data.userId, {});
   return { success: "Admin status updated." };
+}
+
+const removeUserSchema = z.object({
+  userId: z.string().uuid(),
+});
+
+/** Admin-only: delete an Auth user and their profile. Cannot remove yourself. */
+export async function removeUser(
+  _prevState: AdminActionResult,
+  formData: FormData,
+): Promise<AdminActionResult> {
+  let admin: Awaited<ReturnType<typeof requireAdmin>>;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return { error: "Forbidden." };
+  }
+
+  const parsed = removeUserSchema.safeParse({
+    userId: formData.get("userId"),
+  });
+  if (!parsed.success) return { error: "Invalid request." };
+
+  if (parsed.data.userId === admin.userId) {
+    return { error: "You cannot remove your own account." };
+  }
+
+  const supabaseAdmin = createAdminSupabaseClient();
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(parsed.data.userId);
+  if (error) {
+    await writeAuditLog(admin.userId, "user_remove_failed", parsed.data.userId, {
+      message: error.message,
+    });
+    return { error: "Could not remove user." };
+  }
+
+  const db = getDb();
+  if (db) {
+    await db.delete(profiles).where(eq(profiles.userId, parsed.data.userId));
+  }
+
+  await writeAuditLog(admin.userId, "user_removed", parsed.data.userId, {});
+  revalidatePath("/admin/users");
+  return { success: "User removed." };
 }

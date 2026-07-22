@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const COMMENTARY_PROMPT_VERSION = "v3";
+export const COMMENTARY_PROMPT_VERSION = "v4";
 
 export const commentaryOutputSchema = z.object({
   body: z.string().min(40).max(4000),

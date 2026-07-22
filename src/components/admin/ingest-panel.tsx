@@ -191,19 +191,6 @@ export function IngestPanel({
     });
   }
 
-  function onSaveDraft() {
-    if (!jobId) return;
-    const payload = buildPayloadForSave();
-    if (!payload) {
-      setMessage({ error: "Draft needs a title, basis, and at least one statement line." });
-      return;
-    }
-    startTransition(async () => {
-      const result = await updateExtractionDraft(jobId, payload);
-      setMessage(result);
-    });
-  }
-
   function onApprove() {
     if (!jobId) return;
     const payload = buildPayloadForSave();
@@ -499,9 +486,6 @@ export function IngestPanel({
 
           {status === "extracted" && reviewTab === "financials" ? (
             <div className="mt-6 flex flex-wrap gap-3">
-              <Button type="button" variant="outline" onClick={onSaveDraft} disabled={pending}>
-                {pending ? "Saving…" : "Save edits"}
-              </Button>
               <Button type="button" onClick={onApprove} disabled={pending || lines.length === 0}>
                 Approve &amp; calculate metrics
               </Button>

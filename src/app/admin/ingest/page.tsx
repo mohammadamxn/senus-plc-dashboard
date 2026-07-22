@@ -46,7 +46,7 @@ export default async function AdminIngestPage({
     <AdminShell
       currentPath="/admin/ingest"
       title="Ingest financial PDF"
-      description="AI extracts statement lines and KPIs; you review and can edit or add lines before approve. Then code calculates board metrics. Nothing goes live without approve. Half-year periods run from HY2018 through the latest half-year that has ended."
+      description="AI extracts statement lines and KPIs; you review and can edit or add lines before approve. Half-year periods run from HY2018 through the latest half-year that has ended."
     >
       <IngestPanel
         isEmpty={lineCount === 0}

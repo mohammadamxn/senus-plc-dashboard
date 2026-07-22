@@ -1,7 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
-import { assignAudience, setAdmin, type AdminActionResult } from "@/modules/auth/admin-actions";
+import {
+  assignAudience,
+  setAdmin,
+  removeUser,
+  type AdminActionResult,
+} from "@/modules/auth/admin-actions";
 import { Button } from "@/components/ui/button";
 import { siteConfig, type AudienceId } from "@/config/site";
 
@@ -22,6 +27,7 @@ export function UserRow({
 }) {
   const [audienceState, audienceAction, audiencePending] = useActionState(assignAudience, initialState);
   const [adminState, adminAction, adminPending] = useActionState(setAdmin, initialState);
+  const [removeState, removeAction, removePending] = useActionState(removeUser, initialState);
 
   return (
     <tr className="border-b border-stone-100 last:border-0">
@@ -54,7 +60,7 @@ export function UserRow({
           <p className="mt-1 text-xs text-destructive">{audienceState.error}</p>
         )}
       </td>
-      <td className="py-3 text-right">
+      <td className="py-3 pr-4 text-right">
         <form action={adminAction}>
           <input type="hidden" name="userId" value={userId} />
           <input type="hidden" name="isAdmin" value={(!isAdmin).toString()} />
@@ -64,6 +70,27 @@ export function UserRow({
         </form>
         {"error" in adminState && adminState.error && (
           <p className="mt-1 text-xs text-destructive">{adminState.error}</p>
+        )}
+      </td>
+      <td className="py-3 text-right">
+        <form
+          action={removeAction}
+          onSubmit={(e) => {
+            if (!confirm(`Remove ${email}? This cannot be undone.`)) {
+              e.preventDefault();
+            }
+          }}
+        >
+          <input type="hidden" name="userId" value={userId} />
+          <Button type="submit" size="xs" variant="destructive" disabled={removePending || isSelf}>
+            {removePending ? "Removing…" : "Remove"}
+          </Button>
+        </form>
+        {"error" in removeState && removeState.error && (
+          <p className="mt-1 text-xs text-destructive">{removeState.error}</p>
+        )}
+        {"success" in removeState && removeState.success && (
+          <p className="mt-1 text-xs text-stone-500">{removeState.success}</p>
         )}
       </td>
     </tr>

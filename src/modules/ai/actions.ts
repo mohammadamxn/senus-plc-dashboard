@@ -3,7 +3,7 @@
 import "server-only";
 import { getCurrentProfile } from "@/modules/auth/session";
 import { generateAndPersistPackInsights } from "@/modules/ai/generate";
-import { updateInsightBody } from "@/modules/ai/persist";
+import { updateInsightBody, clearInsightContent } from "@/modules/ai/persist";
 import {
   approveAllGeneratedInsights,
   approveInsight,
@@ -102,25 +102,57 @@ export async function updateInsightAction(
   }
 
   const trimmed = body.trim();
-  if (trimmed.length < 40) {
-    return { error: "Commentary must be at least 40 characters." };
+  // Empty is allowed (admin opted to publish that section without commentary).
+  // Non-empty short drafts are rejected so accidental blur of a partial edit doesn't stick.
+  if (trimmed.length > 0 && trimmed.length < 40) {
+    return { error: "Commentary must be empty or at least 40 characters." };
   }
 
   try {
-    await updateInsightBody(insightId, trimmed);
+    if (trimmed.length === 0) {
+      await clearInsightContent(insightId);
+    } else {
+      await updateInsightBody(insightId, trimmed);
+    }
     const db = getDb();
     if (db) {
       await db.insert(auditLog).values({
         actorUserId: admin.userId,
-        action: "insights.edit",
+        action: trimmed.length === 0 ? "insights.clear" : "insights.edit",
         metadata: { insightId },
       });
     }
     revalidatePath("/admin/ingest");
     revalidatePath("/reports");
-    return { success: "Saved." };
+    return { success: trimmed.length === 0 ? "Insight cleared." : "Saved." };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Save failed" };
+  }
+}
+
+export async function clearInsightAction(insightId: string): Promise<InsightActionResult> {
+  let admin: Awaited<ReturnType<typeof requireAdmin>>;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return { error: "Forbidden." };
+  }
+
+  try {
+    await clearInsightContent(insightId);
+    const db = getDb();
+    if (db) {
+      await db.insert(auditLog).values({
+        actorUserId: admin.userId,
+        action: "insights.clear",
+        metadata: { insightId },
+      });
+    }
+    revalidatePath("/admin/ingest");
+    revalidatePath("/reports");
+    return { success: "Insight cleared — this section will have no commentary on the board." };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Clear failed" };
   }
 }
 

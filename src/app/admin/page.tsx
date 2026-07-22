@@ -12,12 +12,12 @@ const CARDS = [
   {
     href: "/admin/users",
     title: "Manage users",
-    body: "Change roles and admin status. Every change is written to the audit log.",
+    body: "Change roles and admin status.",
   },
   {
     href: "/admin/invite",
     title: "Invite user",
-    body: "Send an invite with a fixed audience — invitees never self-select their access level.",
+    body: "Send an invite with a fixed audience.",
   },
 ] as const;
 

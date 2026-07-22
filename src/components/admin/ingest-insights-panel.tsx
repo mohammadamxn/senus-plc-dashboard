@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
   approveAllInsightsAction,
-  approveInsightAction,
+  clearInsightAction,
   loadAdminInsights,
   regeneratePackInsights,
   updateInsightAction,
@@ -61,7 +61,7 @@ export function IngestInsightsPanel({
   const regenerate = useCallback(() => {
     setGenerating(true);
     startTransition(async () => {
-      setMessage("Generating commentary (one API call)…");
+      setMessage("Generating commentary…");
       const result = await regeneratePackInsights(periodId);
       if ("error" in result) {
         setMessage(result.error);
@@ -92,14 +92,6 @@ export function IngestInsightsPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packApproved, periodId]);
 
-  function onApprove(insightId: string) {
-    startTransition(async () => {
-      const result = await approveInsightAction(insightId);
-      setMessage("error" in result ? result.error : result.success);
-      void refresh();
-    });
-  }
-
   function onApproveAll() {
     startTransition(async () => {
       const result = await approveAllInsightsAction(periodId);
@@ -128,31 +120,35 @@ export function IngestInsightsPanel({
     });
   }
 
+  function onClearInsight(insightId: string) {
+    if (!confirm("Clear this section’s commentary? It will not appear on the board report.")) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await clearInsightAction(insightId);
+      if ("error" in result) {
+        setMessage(result.error);
+      } else {
+        setDrafts((prev) => ({ ...prev, [insightId]: "" }));
+        setMessage(result.success);
+      }
+      void refresh();
+    });
+  }
+
   if (!packApproved) {
     return (
       <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
-        Approve financials first. One commentary per section is then generated from metrics + PDF
-        text (with page citations).
+        Approve financials first. Commentary for each section is then generated automatically.
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        One AI call writes commentary for Growth, Profitability, Liquidity, Solvency, and Returns —
-        explaining metric moves using the HY PDF. Edit the text directly if needed; verify sources
-        in the box below each section before approving for the board report.
-      </p>
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" onClick={regenerate} disabled={pending}>
-          {generating ? "Generating…" : insights.length > 0 ? "Regenerate all" : "Generate commentary"}
-        </Button>
         <Button type="button" variant="outline" onClick={onApproveAll} disabled={pending || generating}>
           {pending && !generating ? "Approving…" : "Approve all generated"}
-        </Button>
-        <Button type="button" variant="outline" onClick={() => void refresh()} disabled={pending}>
-          Refresh
         </Button>
       </div>
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
@@ -186,50 +182,56 @@ export function IngestInsightsPanel({
                 />
               ) : (
                 <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
-                  {generating ? "Generating…" : "Not generated yet — click Generate commentary."}
+                  {generating ? "Generating…" : "Not generated yet."}
                 </p>
               )}
               {row ? (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {dirty ? "Unsaved edits — click away to save." : showSaved ? "Saved." : "\u00A0"}
+                  {draftValue.trim().length === 0
+                    ? "No commentary — this section will be blank on the board."
+                    : dirty
+                      ? "Unsaved edits — click away to save."
+                      : showSaved
+                        ? "Saved."
+                        : "\u00A0"}
                 </p>
               ) : null}
 
-              {row && row.citations.length > 0 ? (
+              {row ? (
+                <div className="mt-2">
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    disabled={pending || generating || draftValue.trim().length === 0}
+                    onClick={() => onClearInsight(row.id)}
+                  >
+                    Clear insight
+                  </Button>
+                </div>
+              ) : null}
+
+              {row && row.citations.some((c) => c.pageRef || c.quote) ? (
                 <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-3">
                   <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Verify sources
                   </p>
                   <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs text-muted-foreground">
-                    {row.citations.map((c, i) => (
-                      <li key={i}>
-                        {c.pageRef ? (
-                          <span className="font-medium text-foreground/80">PDF {c.pageRef}</span>
-                        ) : null}
-                        {c.metricLabel
-                          ? `${c.pageRef ? " · " : ""}Metric: ${c.metricLabel}`
-                          : null}
-                        {c.quote ? (
-                          <span className="mt-0.5 block italic text-muted-foreground/90">
-                            “{c.quote}”
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
+                    {row.citations
+                      .filter((c) => c.pageRef || c.quote)
+                      .map((c, i) => (
+                        <li key={i}>
+                          {c.pageRef ? (
+                            <span className="font-medium text-foreground/80">PDF {c.pageRef}</span>
+                          ) : null}
+                          {c.quote ? (
+                            <span className="mt-0.5 block italic text-muted-foreground/90">
+                              “{c.quote}”
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
                   </ol>
-                </div>
-              ) : null}
-
-              {row && row.status === "generated" ? (
-                <div className="mt-3">
-                  <Button
-                    type="button"
-                    size="xs"
-                    disabled={pending}
-                    onClick={() => onApprove(row.id)}
-                  >
-                    Approve insight
-                  </Button>
                 </div>
               ) : null}
             </div>

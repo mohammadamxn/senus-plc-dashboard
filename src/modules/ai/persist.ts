@@ -104,6 +104,14 @@ export async function updateInsightBody(insightId: string, body: string): Promis
   await db.update(insights).set({ body }).where(eq(insights.id, insightId));
 }
 
+/** Wipe commentary and citations so the board section shows no insight. */
+export async function clearInsightContent(insightId: string): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error("DATABASE_URL is not set");
+  await db.delete(insightCitations).where(eq(insightCitations.insightId, insightId));
+  await db.update(insights).set({ body: "" }).where(eq(insights.id, insightId));
+}
+
 export async function setInsightStatus(
   insightId: string,
   status: "pending" | "generated" | "approved" | "stale",

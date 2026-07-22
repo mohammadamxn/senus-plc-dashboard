@@ -33,7 +33,7 @@ export default async function AdminUsersPage() {
     <AdminShell
       currentPath="/admin/users"
       title="Users"
-      description="Change a user&apos;s role or admin status. Every change is written to the audit log."
+      description="Change a user&apos;s role or admin status."
     >
       {error && <p className="mb-4 text-sm text-destructive">Could not load users: {error.message}</p>}
 
@@ -43,7 +43,8 @@ export default async function AdminUsersPage() {
             <tr className="border-b border-stone-200 text-xs uppercase tracking-wide text-stone-500">
               <th className="py-2 pr-4">Email</th>
               <th className="py-2 pr-4">Role</th>
-              <th className="py-2 text-right">Admin</th>
+              <th className="py-2 pr-4 text-right">Admin</th>
+              <th className="py-2 text-right">Remove</th>
             </tr>
           </thead>
           <tbody>
