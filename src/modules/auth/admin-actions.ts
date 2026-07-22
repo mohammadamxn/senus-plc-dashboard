@@ -3,7 +3,7 @@
 import "server-only";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { getDb } from "@/db/client";
 import { profiles, auditLog } from "@/db/schema";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
