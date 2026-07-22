@@ -1,0 +1,139 @@
+[
+  {
+    "periodId": "fy2025",
+    "key": "revenue",
+    "label": "Group revenue",
+    "value": 836991,
+    "unit": "EUR",
+    "basis": "audited",
+    "sourceRef": "IR / Notes to editors — year ended 30 June 2025"
+  },
+  {
+    "periodId": "fy2025",
+    "key": "customer_accounts",
+    "label": "Customer accounts",
+    "value": 138,
+    "unit": "count",
+    "basis": "audited",
+    "sourceRef": "IR / Notes to editors — year ended 30 June 2025"
+  },
+  {
+    "periodId": "hy2026",
+    "key": "enterprise_deals_closed",
+    "label": "Enterprise deals closed in period",
+    "value": 21,
+    "unit": "count",
+    "basis": "management",
+    "sourceRef": "HY2026 highlights"
+  },
+  {
+    "periodId": "hy2026",
+    "key": "closed_pipeline_value",
+    "label": "Closed pipeline deals value",
+    "value": 700000,
+    "unit": "EUR",
+    "basis": "management",
+    "sourceRef": "HY2026 highlights — approx."
+  },
+  {
+    "periodId": "hy2026",
+    "key": "open_pipeline_value",
+    "label": "Open pipeline value",
+    "value": 500000,
+    "unit": "EUR",
+    "basis": "management",
+    "sourceRef": "HY2026 highlights — approx."
+  },
+  {
+    "periodId": "hy2026",
+    "key": "bank_debt",
+    "label": "Bank debt balances",
+    "value": 76474,
+    "unit": "EUR",
+    "basis": "unaudited",
+    "sourceRef": "HY2026 BS — creditors falling due after more than one year"
+  },
+  {
+    "periodId": "hy2026",
+    "key": "equity_raised",
+    "label": "New equity funding completed",
+    "value": 1100000,
+    "unit": "EUR",
+    "basis": "management",
+    "sourceRef": "HY2026 highlights"
+  },
+  {
+    "periodId": "fy2026",
+    "key": "revenue",
+    "label": "Group revenue (almost €1.0m)",
+    "value": 1000000,
+    "unit": "EUR",
+    "basis": "management",
+    "tolerance": 50000,
+    "sourceRef": "FY2026 Chairman address — rounded"
+  },
+  {
+    "periodId": "fy2026",
+    "key": "enterprise_sales_pct",
+    "label": "Enterprise channel share of sales",
+    "value": 60,
+    "unit": "percent_min",
+    "basis": "management",
+    "sourceRef": "FY2026 Chairman address — >60%"
+  },
+  {
+    "periodId": "fy2026",
+    "key": "uk_sales_pct",
+    "label": "UK share of sales",
+    "value": 20,
+    "unit": "percent_approx",
+    "basis": "management",
+    "sourceRef": "FY2026 Chairman address — ~20%"
+  },
+  {
+    "periodId": "fy2026",
+    "key": "era_june_closed_sales",
+    "label": "Senus ERA June 2026 closed sales",
+    "value": 125000,
+    "unit": "EUR",
+    "basis": "management",
+    "sourceRef": "FY2026 Chairman address — exceeding €125,000"
+  },
+  {
+    "periodId": "fy2026",
+    "key": "loamin_annualised_opex_save",
+    "label": "Loamin integration annualised opex reduction",
+    "value": 400000,
+    "unit": "EUR",
+    "basis": "management",
+    "sourceRef": "FY2026 Chairman address — close to €0.4m"
+  },
+  {
+    "periodId": "fy2026",
+    "key": "cash_year_end",
+    "label": "Cash position at year-end",
+    "value": 130000,
+    "unit": "EUR",
+    "basis": "management",
+    "tolerance": 20000,
+    "sourceRef": "FY2026 Chairman address — approximately €0.13m"
+  },
+  {
+    "periodId": "fy2026",
+    "key": "fundraise_target_min",
+    "label": "Intended equity fundraise (min)",
+    "value": 500000,
+    "unit": "EUR",
+    "basis": "management",
+    "sourceRef": "FY2026 Chairman address"
+  },
+  {
+    "periodId": "fy2026",
+    "key": "fundraise_target_max",
+    "label": "Intended equity fundraise (max)",
+    "value": 1500000,
+    "unit": "EUR",
+    "basis": "management",
+    "sourceRef": "FY2026 Chairman address"
+  }
+]

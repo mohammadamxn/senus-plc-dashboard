@@ -1,0 +1,11 @@
+{
+  "id": "senus-plc",
+  "legalName": "Senus PLC",
+  "registeredOffice": "Block D, Daneswell Business Centre, Monksland, Athlone, Co. Roscommon, Ireland",
+  "listing": "Euronext Access Dublin",
+  "ticker": "SENUS",
+  "functionalCurrency": "EUR",
+  "yearEndMonth": 6,
+  "yearEndDay": 30,
+  "reportingFramework": "FRS 102 / Companies Act 2014"
+}

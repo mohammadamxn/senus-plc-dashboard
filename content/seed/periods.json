@@ -1,0 +1,45 @@
+[
+  {
+    "id": "hy2025",
+    "companyId": "senus-plc",
+    "periodType": "HY",
+    "label": "HY2025",
+    "startDate": "2024-07-01",
+    "endDate": "2024-12-31",
+    "basis": "unaudited",
+    "sortOrder": 1
+  },
+  {
+    "id": "fy2025",
+    "companyId": "senus-plc",
+    "periodType": "FY",
+    "label": "FY2025",
+    "startDate": "2024-07-01",
+    "endDate": "2025-06-30",
+    "basis": "audited",
+    "sortOrder": 2,
+    "notes": "Annual Report figures; revenue €836,991 and 138 customer accounts from IR materials."
+  },
+  {
+    "id": "hy2026",
+    "companyId": "senus-plc",
+    "periodType": "HY",
+    "label": "HY2026",
+    "startDate": "2025-07-01",
+    "endDate": "2025-12-31",
+    "basis": "unaudited",
+    "sortOrder": 3,
+    "notes": "Unaudited half-year results for six months ended 31 December 2025."
+  },
+  {
+    "id": "fy2026",
+    "companyId": "senus-plc",
+    "periodType": "FY",
+    "label": "FY2026",
+    "startDate": "2025-07-01",
+    "endDate": "2026-06-30",
+    "basis": "management",
+    "sortOrder": 4,
+    "notes": "Chairman address KPIs — management/narrative until full audited FY2026 statements are ingested."
+  }
+]
