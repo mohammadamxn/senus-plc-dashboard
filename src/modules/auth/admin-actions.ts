@@ -9,6 +9,7 @@ import { profiles, auditLog } from "@/db/schema";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/modules/auth/session";
 import { siteConfig, type AudienceId } from "@/config/site";
+import { inviteConfirmUrl } from "@/lib/site-url";
 
 export type AdminActionResult = { error: string } | { success: string };
 
@@ -62,6 +63,7 @@ export async function sendInvite(
   const supabaseAdmin = createAdminSupabaseClient();
   const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
     data: { audience, is_admin: false },
+    redirectTo: inviteConfirmUrl(),
   });
 
   if (error) {

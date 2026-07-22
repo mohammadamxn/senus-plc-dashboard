@@ -12,7 +12,7 @@ export default async function AdminInvitePage() {
     <AdminShell
       currentPath="/admin/invite"
       title="Invite a user"
-      description="Choose the role they&apos;ll have from the start — invited accounts never self-select their access level."
+      description="Choose the role they&apos;ll have from the start."
     >
       <div className="max-w-md rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
         <InviteForm />

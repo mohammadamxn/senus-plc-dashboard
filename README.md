@@ -109,16 +109,33 @@ Open [http://localhost:3000](http://localhost:3000) → redirects to `/login`.
 The UI runs from `content/seed/` **without** a database (falls back automatically if `RUNTIME_DATABASE_URL`/`DATABASE_URL` aren't set or a query fails). When ready for deploy:
 
 1. Create a remote Supabase project
-2. Set `DATABASE_URL`, `RUNTIME_DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` and on your host
-3. `npm run db:migrate` to apply all migrations (creates the `app_runtime` role among other things — copy its generated password from the migration output into `RUNTIME_DATABASE_URL`, then discard it; it's never written to disk)
-4. `npm run db:seed` to load the demo dataset (or leave empty and use `/admin/ingest` to upload a PDF)
-5. Set `CLAUDE_API_KEY` for extraction
-6. Disable public signup in the Supabase Dashboard (see above), then `npm run bootstrap-admin -- you@example.com`
+2. Set `DATABASE_URL`, `RUNTIME_DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and (for production) `NEXT_PUBLIC_SITE_URL` in `.env.local` and on your host
+3. In Supabase → Authentication → URL configuration, set **Site URL** to the same public origin (e.g. `https://senus-plc-dashboard.vercel.app`) and allow redirect URLs under `/auth/confirm`
+4. `npm run db:migrate` to apply all migrations (creates the `app_runtime` role among other things — copy its generated password from the migration output into `RUNTIME_DATABASE_URL`, then discard it; it's never written to disk)
+5. `npm run db:seed` to load the demo dataset (or leave empty and use `/admin/ingest` to upload a PDF)
+6. Set `CLAUDE_API_KEY` for extraction
+7. Disable public signup in the Supabase Dashboard (see above), then `npm run bootstrap-admin -- you@example.com`
+
+Invite and password-reset emails use `NEXT_PUBLIC_SITE_URL` + `/auth/confirm` (invite → `/accept-invite`, reset → `/update-password`). If Site URL / `NEXT_PUBLIC_SITE_URL` still point at localhost, email links will fail with connection refused.
 
 ```bash
-npm test          # metrics + integrity + auth policy tests
+npm test          # unit tests (vitest)
+npm run test:e2e  # Playwright (needs E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD + running app env)
 npm run build     # production build
 ```
+
+### Playwright E2E
+
+```bash
+# .env.local (or shell):
+# E2E_ADMIN_EMAIL=...
+# E2E_ADMIN_PASSWORD=...
+npx playwright install chromium   # once
+npm run test:e2e                  # starts next dev via webServer unless PLAYWRIGHT_BASE_URL is set
+npm run test:e2e:ui               # interactive
+```
+
+Slow specs that upload `docs/Senus Notification of Results HY Dec 2025.pdf` and call Claude are tagged `@slow`.
 
 ## AI-assisted development workflow
 

@@ -15,6 +15,7 @@ config({ path: ".env.local" });
 
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { inviteConfirmUrl } from "@/lib/site-url";
 
 async function main() {
   const email = process.argv[2];
@@ -36,6 +37,7 @@ async function main() {
 
   const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(parsed.data, {
     data: { audience: "management", is_admin: true },
+    redirectTo: inviteConfirmUrl(),
   });
 
   if (error) {

@@ -40,11 +40,18 @@ export function ReportShell({
                 <>
                   {" "}
                   ·{" "}
+                  <span className="uppercase tracking-wide text-foreground">Admin</span>
+                </>
+              )}
+              {!isAdmin && audience ? (
+                <>
+                  {" "}
+                  ·{" "}
                   <span className="uppercase tracking-wide text-foreground">
                     {AUDIENCE_LABELS[audience]}
                   </span>
                 </>
-              )}
+              ) : null}
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {isAdmin && (

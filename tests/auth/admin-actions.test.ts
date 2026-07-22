@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("@/modules/auth/session", () => ({ getCurrentProfile: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabaseClient: vi.fn() }));
-vi.mock("next/navigation", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 const valuesMock = vi.fn().mockResolvedValue(undefined);
 const whereMock = vi.fn().mockResolvedValue(undefined);

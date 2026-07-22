@@ -4,6 +4,7 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PASSWORD_MIN_LENGTH } from "@/modules/auth/password-policy";
+import { recoveryConfirmUrl } from "@/lib/site-url";
 
 export type ActionResult = { error: string } | { error?: undefined };
 
@@ -54,7 +55,7 @@ export async function requestPasswordReset(
 
   const supabase = await createServerSupabaseClient();
   await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${resolveOrigin()}/auth/confirm?type=recovery&next=/update-password`,
+    redirectTo: recoveryConfirmUrl(),
   });
 
   return { success: GENERIC_RESET_MESSAGE };
@@ -166,12 +167,4 @@ export async function changePassword(
   if (error) return { error: "Could not update password. Please try again." };
 
   return { success: "Your password has been updated." };
-}
-
-function resolveOrigin(): string {
-  // Server Actions don't get a Request object with a Host header the way a
-  // Route Handler does; NEXT_PUBLIC_SITE_URL should be set in production.
-  // Falls back to localhost for dev so password-reset emails still work
-  // without extra config.
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
