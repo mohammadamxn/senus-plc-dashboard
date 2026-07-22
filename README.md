@@ -135,7 +135,13 @@ npm run test:e2e                  # starts next dev via webServer unless PLAYWRI
 npm run test:e2e:ui               # interactive
 ```
 
-Slow specs that upload `docs/Senus Notification of Results HY Dec 2025.pdf` and call Claude are tagged `@slow`.
+PDF/Claude specs are tagged `@slow` (still run under the `chromium` project).
+
+```bash
+npx playwright test --project=chromium
+npx playwright test --project=chromium --debug
+npx playwright test --project=chromium --grep-invert @slow   # skip slow Claude specs
+```
 
 ## AI-assisted development workflow
 

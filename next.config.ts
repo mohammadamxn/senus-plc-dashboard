@@ -30,6 +30,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Playwright hits 127.0.0.1 while `next dev` is often bound to localhost —
+  // allow both so client bundles / HMR are not blocked in e2e.
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   experimental: {
     ...(allowedOrigins && allowedOrigins.length > 0
       ? { serverActions: { allowedOrigins, bodySizeLimit: "12mb" } }

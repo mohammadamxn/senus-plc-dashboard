@@ -3,7 +3,7 @@ import { config as loadEnv } from "dotenv";
 
 loadEnv({ path: ".env.local" });
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 const reuseExisting = Boolean(process.env.PLAYWRIGHT_BASE_URL);
 
 export default defineConfig({
@@ -22,12 +22,8 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "smoke",
-      grepInvert: /@slow/,
-    },
-    {
-      name: "slow",
-      grep: /@slow/,
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
       timeout: 600_000,
     },
   ],

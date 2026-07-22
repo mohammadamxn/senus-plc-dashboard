@@ -36,14 +36,13 @@ export function ReportShell({
           <div className="flex flex-col items-start gap-3 sm:items-end">
             <p className="text-xs text-muted-foreground">
               Signed in as <span className="text-foreground">{email ?? "unknown"}</span>
-              {isAdmin && (
+              {isAdmin ? (
                 <>
                   {" "}
                   ·{" "}
                   <span className="uppercase tracking-wide text-foreground">Admin</span>
                 </>
-              )}
-              {!isAdmin && audience ? (
+              ) : audience ? (
                 <>
                   {" "}
                   ·{" "}

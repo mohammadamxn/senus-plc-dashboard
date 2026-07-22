@@ -1,37 +1,67 @@
+import fs from "node:fs";
 import { test, expect } from "@playwright/test";
-import { HY_PDF, loginAsAdmin } from "./helpers";
+import {
+  HY_PDF,
+  loginAsAdmin,
+  expectSectionMetricsAndCharts,
+  expectStatementTables,
+  SECTION_METRIC_LABELS,
+} from "./helpers";
 
 test.describe("@slow ingest and board report", () => {
   test("upload PDF, approve, view full HY2026 report", async ({ page }) => {
     test.setTimeout(600_000);
-    await loginAsAdmin(page);
+    expect(fs.existsSync(HY_PDF), `Missing fixture PDF at ${HY_PDF}`).toBeTruthy();
 
+    await loginAsAdmin(page);
     await page.goto("/admin/ingest");
     await expect(page.getByRole("heading", { name: /ingest/i })).toBeVisible();
 
+    // Wipe any already-approved HY2026 pack so we exercise a real extract → approve path.
+    // (Approve button only renders for status === "extracted".)
+    page.once("dialog", (dialog) => dialog.accept());
+    const clearSelect = page.locator("#clear-period");
+    if (await clearSelect.isVisible().catch(() => false)) {
+      const values = await clearSelect.locator("option").evaluateAll((opts) =>
+        opts.map((o) => (o as HTMLOptionElement).value),
+      );
+      if (values.includes("hy2026")) {
+        await clearSelect.selectOption("hy2026");
+        await page.getByRole("button", { name: /Remove pack/i }).click();
+        await expect(page.getByRole("button", { name: /Upload & extract/i })).toBeVisible({
+          timeout: 60_000,
+        });
+      }
+    }
+
+    await page.locator('select[name="periodId"]').selectOption("hy2026");
+
     await page.locator('input[type="file"]').setInputFiles(HY_PDF);
-    await page.getByRole("button", { name: /extract|upload/i }).first().click();
-
-    await expect(page.getByText(/HY2026|extracted|statement/i).first()).toBeVisible({
-      timeout: 300_000,
-    });
-    await expect(page.getByRole("button", { name: /Approve.*metrics/i })).toBeVisible({
-      timeout: 60_000,
+    await page.getByRole("button", { name: /Upload & extract|Re-extract from PDF/i }).click();
+    await expect(page.getByRole("button", { name: /Extracting/i })).toBeVisible({
+      timeout: 15_000,
     });
 
-    await page.getByRole("button", { name: /Approve.*metrics/i }).click();
-    await expect(page.getByText(/growth|profitability|liquidity|generating|insight/i).first()).toBeVisible({
-      timeout: 120_000,
-    });
+    // Succeed only when a fresh extract is ready to approve; fail loudly on Claude/Zod errors.
+    const approveBtn = page.getByRole("button", { name: /Approve & calculate metrics/i });
+    const extractError = page.getByText(/Extraction failed|Zod validation|Forbidden|Choose a PDF/i);
+    await expect(approveBtn.or(extractError).first()).toBeVisible({ timeout: 300_000 });
+    if (await extractError.isVisible().catch(() => false)) {
+      const detail = await extractError.first().innerText();
+      throw new Error(`PDF extract failed (file was uploaded from docs/): ${detail}`);
+    }
+    await expect(approveBtn).toBeEnabled();
+    await expect(page.getByText(/Latest job:.*status\s+extracted/i)).toBeVisible();
 
-    // Wait for commentary sections or approve-all availability
-    await expect(page.getByRole("heading", { name: /^growth$/i })).toBeVisible({
-      timeout: 300_000,
-    });
-    await expect(page.getByRole("heading", { name: /^profitability$/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /^liquidity$/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /^solvency$/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /^returns$/i })).toBeVisible();
+    await approveBtn.click();
+    await expect(page.getByRole("tab", { name: /Insights/i })).toBeVisible({ timeout: 120_000 });
+    await page.getByRole("tab", { name: /Insights/i }).click();
+
+    for (const section of Object.keys(SECTION_METRIC_LABELS)) {
+      await expect(page.getByRole("heading", { name: new RegExp(`^${section}$`, "i") })).toBeVisible({
+        timeout: 300_000,
+      });
+    }
 
     const approveAll = page.getByRole("button", { name: /Approve all generated/i });
     await expect(approveAll).toBeEnabled({ timeout: 300_000 });
@@ -47,23 +77,12 @@ test.describe("@slow ingest and board report", () => {
     expect(options.some((o) => /HY2026\s+vs\s+HY2025/i.test(o))).toBeTruthy();
     expect(options.some((o) => /HY2024\s+vs\s+HY2025/i.test(o))).toBeFalsy();
 
-    await expect(page.getByRole("heading", { name: /Growth & Revenue/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /^Profitability$/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Cash & Liquidity/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Solvency & Leverage/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /^Returns$/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Financial statements/i })).toBeVisible();
+    for (const id of Object.keys(SECTION_METRIC_LABELS) as (keyof typeof SECTION_METRIC_LABELS)[]) {
+      await expectSectionMetricsAndCharts(page, id);
+    }
+    await expectStatementTables(page);
 
-    // PDF headline figures (UI may format with commas / €)
     await expect(page.getByText(/354[,.]?813/).first()).toBeVisible();
     await expect(page.getByText(/340[,.]?931/).first()).toBeVisible();
-
-    // Chart / table affordances in growth
-    await expect(page.locator("#growth")).toBeVisible();
-    await expect(page.locator("#profitability")).toBeVisible();
-    await expect(page.locator("#liquidity")).toBeVisible();
-    await expect(page.locator("#solvency")).toBeVisible();
-    await expect(page.locator("#returns")).toBeVisible();
-    await expect(page.locator("#statements")).toBeVisible();
   });
 });
