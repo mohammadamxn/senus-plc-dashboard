@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   assignAudience,
   setAdmin,
@@ -28,6 +28,7 @@ export function UserRow({
   const [audienceState, audienceAction, audiencePending] = useActionState(assignAudience, initialState);
   const [adminState, adminAction, adminPending] = useActionState(setAdmin, initialState);
   const [removeState, removeAction, removePending] = useActionState(removeUser, initialState);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   return (
     <tr className="border-b border-stone-100 last:border-0">
@@ -73,19 +74,40 @@ export function UserRow({
         )}
       </td>
       <td className="py-3 text-right">
-        <form
-          action={removeAction}
-          onSubmit={(e) => {
-            if (!confirm(`Remove ${email}? This cannot be undone.`)) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <input type="hidden" name="userId" value={userId} />
-          <Button type="submit" size="xs" variant="destructive" disabled={removePending || isSelf}>
-            {removePending ? "Removing…" : "Remove"}
+        {confirmRemove ? (
+          <div className="inline-flex max-w-[16rem] flex-col items-end gap-2 text-left">
+            <p className="text-xs text-stone-600">
+              Are you sure you want to delete this user ({email})? This cannot be undone.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                disabled={removePending}
+                onClick={() => setConfirmRemove(false)}
+              >
+                Cancel
+              </Button>
+              <form action={removeAction}>
+                <input type="hidden" name="userId" value={userId} />
+                <Button type="submit" size="xs" variant="destructive" disabled={removePending || isSelf}>
+                  {removePending ? "Deleting…" : "Yes, delete"}
+                </Button>
+              </form>
+            </div>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            size="xs"
+            variant="destructive"
+            disabled={removePending || isSelf}
+            onClick={() => setConfirmRemove(true)}
+          >
+            Remove
           </Button>
-        </form>
+        )}
         {"error" in removeState && removeState.error && (
           <p className="mt-1 text-xs text-destructive">{removeState.error}</p>
         )}

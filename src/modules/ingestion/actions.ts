@@ -55,26 +55,35 @@ export async function countStatementLines(periodId?: string): Promise<number> {
 }
 
 /**
- * Periods that have approved facts (statement lines and/or operating KPIs),
- * newest first — used by the report period dropdown.
+ * Primary approved packs only (have calculated metric_values).
+ * Comparative-only periods (e.g. HY2025 lines written as YoY prior for an
+ * HY2026 approve) are excluded so the Comparing menu never invents a fake pack.
+ * Also requires the prior period to have statement lines when a prior exists,
+ * so the YoY pair is backed by real data.
  */
 export async function listAvailableReportPeriods(): Promise<AvailableReportPeriod[]> {
   const db = getDb();
   if (!db) return [];
 
+  const fromMetrics = await db
+    .selectDistinct({ periodId: metricValues.periodId })
+    .from(metricValues);
+  const primaryIds = new Set(fromMetrics.map((r) => r.periodId));
+  if (primaryIds.size === 0) return [];
+
   const fromLines = await db
     .selectDistinct({ periodId: statementLines.periodId })
     .from(statementLines);
-  const fromKpis = await db
-    .selectDistinct({ periodId: operatingKpis.periodId })
-    .from(operatingKpis);
-
-  const ids = [...new Set([...fromLines, ...fromKpis].map((r) => r.periodId))];
-  if (ids.length === 0) return [];
+  const periodsWithLines = new Set(fromLines.map((r) => r.periodId));
 
   const rows = await db.select().from(fiscalPeriods);
   return rows
-    .filter((p) => ids.includes(p.id))
+    .filter((p) => {
+      if (!primaryIds.has(p.id)) return false;
+      const prior = priorPeriodId(p.id);
+      if (!prior) return true;
+      return periodsWithLines.has(prior);
+    })
     .sort((a, b) => b.sortOrder - a.sortOrder)
     .map((p) => ({
       id: p.id,
@@ -85,32 +94,11 @@ export async function listAvailableReportPeriods(): Promise<AvailableReportPerio
 }
 
 /**
- * Primary packs only (have calculated metric_values) — used by Remove pack UI.
+ * Primary HY packs — used by Remove pack UI (same set as the report switcher, HY only).
  */
 export async function listRemovableReportPeriods(): Promise<AvailableReportPeriod[]> {
-  const db = getDb();
-  if (!db) return [];
-
-  const fromMetrics = await db
-    .selectDistinct({ periodId: metricValues.periodId })
-    .from(metricValues);
-  const ids = fromMetrics.map((r) => r.periodId);
-  if (ids.length === 0) {
-    // Fallback: HY periods with statement lines (e.g. partial loads)
-    const all = await listAvailableReportPeriods();
-    return all.filter((p) => p.periodType === "HY");
-  }
-
-  const rows = await db.select().from(fiscalPeriods);
-  return rows
-    .filter((p) => ids.includes(p.id) && p.periodType === "HY")
-    .sort((a, b) => b.sortOrder - a.sortOrder)
-    .map((p) => ({
-      id: p.id,
-      label: p.label,
-      basis: p.basis,
-      periodType: p.periodType,
-    }));
+  const all = await listAvailableReportPeriods();
+  return all.filter((p) => p.periodType === "HY");
 }
 
 export async function getExtractionJobWithDraft(jobId: string) {

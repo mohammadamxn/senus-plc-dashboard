@@ -7,7 +7,7 @@ import { priorPeriodId } from "@/modules/periods/generate";
 function pairLabel(periodId: string, label: string): string {
   const priorId = priorPeriodId(periodId);
   if (!priorId) return label;
-  return `${priorId.toUpperCase()} vs ${label}`;
+  return `${label} vs ${priorId.toUpperCase()}`;
 }
 
 export function PeriodSwitcher({
