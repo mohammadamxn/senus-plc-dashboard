@@ -98,6 +98,7 @@ export function UserRow({
             <form action={audienceAction} className="flex items-center gap-2">
               <input type="hidden" name="userId" value={userId} />
               <select
+                key={audience ?? "none"}
                 name="audience"
                 defaultValue={audience ?? ""}
                 className="h-7 rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:border-ring"
@@ -112,12 +113,15 @@ export function UserRow({
                 ))}
               </select>
               <Button type="submit" size="xs" variant="outline" disabled={audiencePending}>
-                Save
+                {audiencePending ? "Saving…" : "Save"}
               </Button>
             </form>
           )}
           {"error" in audienceState && audienceState.error && (
             <p className="mt-1 text-xs text-destructive">{audienceState.error}</p>
+          )}
+          {"success" in audienceState && audienceState.success && (
+            <p className="mt-1 text-xs text-emerald-700">{audienceState.success}</p>
           )}
         </td>
         <td className="py-3 pr-4 text-right">

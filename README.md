@@ -25,23 +25,19 @@ This is a **modular monolith**: one Next.js app, clear module boundaries, one Po
 
 ---
 
-
-
 ## Technologies used
 
 
-| Layer                     | Choice                        | Why                                                                                                                                 |
-| ------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| App                       | Next.js (App Router, RSC)     | Backend lives in the same app (Server Actions for ingest/approve/invite, server-only secrets) — no separate API service to maintain |
-| Database / auth           | Supabase Postgres + Drizzle   | Managed hosting + auth flows (invite, sign-in, reset, sessions) + web console in one platform; less infra/identity wiring           |
-| Metrics                   | TypeScript + decimal.js       | Exact maths; easy to unit-test                                                                                                      |
-| AI                        | Claude (`AI_MODEL` env) + Zod | Structured extraction and commentary; schema-validated JSON                                                                         |
-| Access control            | App checks + Postgres RLS     | Two layers so a missed UI check still cannot leak rows                                                                              |
+| Layer           | Choice                        | Why                                                                                                                                 |
+| --------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| App             | Next.js (App Router, RSC)     | Backend lives in the same app (Server Actions for ingest/approve/invite, server-only secrets) — no separate API service to maintain |
+| Database / auth | Supabase Postgres + Drizzle   | Managed hosting + auth flows (invite, sign-in, reset, sessions) + web console in one platform; less infra/identity wiring           |
+| Metrics         | TypeScript + decimal.js       | Used to calculate precise maths to avoid LLM hallucination                                                                          |
+| AI              | Claude (`AI_MODEL` env) + Zod | Structured extraction and commentary; schema-validated JSON                                                                         |
+| Access control  | App checks + Postgres RLS     | Two layers so a missed UI check still cannot leak rows                                                                              |
 
 
 ---
-
-
 
 ## How I used AI tools
 
@@ -57,8 +53,6 @@ I cross-checked AI suggestions and design decisions against sources on the inter
 
 ---
 
-
-
 ## Assumptions
 
 - **Reporting period:** based on the reference materials provided, I focused on year-on-year reporting. All metrics, comparisons, and AI-generated insights are calculated from YoY data.
@@ -66,8 +60,6 @@ I cross-checked AI suggestions and design decisions against sources on the inter
 - **Data should be restricted by default:** I assumed the financial data is sensitive enough that it should not be publicly accessible. For this reason, there is no signup page, an admin must invite a named person and assign them a fixed role, rather than allowing anyone to create an account and view the board's financials.
 
 ---
-
-
 
 ## How outputs were validated
 
@@ -81,8 +73,6 @@ I cross-checked AI suggestions and design decisions against sources on the inter
 
 
 ---
-
-
 
 ## Getting started
 

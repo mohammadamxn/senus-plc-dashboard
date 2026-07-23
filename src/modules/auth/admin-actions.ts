@@ -109,6 +109,7 @@ export async function assignAudience(
   await writeAuditLog(admin.userId, "audience_changed", parsed.data.userId, {
     audience: parsed.data.audience,
   });
+  revalidatePath("/admin/users");
   return { success: "Role updated." };
 }
 
@@ -141,6 +142,7 @@ export async function setAdmin(
   await db.update(profiles).set({ isAdmin: parsed.data.isAdmin }).where(eq(profiles.userId, parsed.data.userId));
 
   await writeAuditLog(admin.userId, parsed.data.isAdmin ? "admin_granted" : "admin_revoked", parsed.data.userId, {});
+  revalidatePath("/admin/users");
   return { success: "Admin status updated." };
 }
 
