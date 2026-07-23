@@ -1,6 +1,6 @@
 # Senus PLC Board Report
 
-A board-reporting platform for **Senus PLC** half-year financials. The same underlying numbers are shown to four audiences — **Management**, the **Board**, **Equity Investors**, and **Credit Providers** — but each role only sees the sections relevant to them.
+A board-reporting platform for **Senus PLC** half-year financials. The same underlying numbers are shown to four audiences: **Management**, the **Board**, **Equity Investors**, and **Credit Providers**.
 
 **Live rule throughout:** deterministic TypeScript computes every figure (margins, runway, ROCE, gearing, and so on). AI extracts data from PDFs and writes narrative commentary around those pre-computed numbers. It never does the arithmetic.
 
@@ -28,13 +28,13 @@ This is a **modular monolith**: one Next.js app, clear module boundaries, one Po
 ## Technologies used
 
 
-| Layer                     | Choice                        | Why                                                         |
-| ------------------------- | ----------------------------- | ----------------------------------------------------------- |
+| Layer                     | Choice                        | Why                                                                                                                            |
+| ------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | App                       | Next.js (App Router, RSC)     | One app for server-rendered role-scoped reports, Server Actions (ingest/approve/invite), route guards, and server-only secrets |
-| Database / auth / storage | Supabase Postgres + Drizzle   | Relational integrity, invite auth                           |
-| Metrics                   | TypeScript + decimal.js       | Exact maths; easy to unit-test                              |
-| AI                        | Claude (`AI_MODEL` env) + Zod | Structured extraction and commentary; schema-validated JSON |
-| Access control            | App checks + Postgres RLS     | Two layers so a missed UI check still cannot leak rows      |
+| Database / auth / storage | Supabase Postgres + Drizzle   | Relational integrity, invite auth                                                                                              |
+| Metrics                   | TypeScript + decimal.js       | Exact maths; easy to unit-test                                                                                                 |
+| AI                        | Claude (`AI_MODEL` env) + Zod | Structured extraction and commentary; schema-validated JSON                                                                    |
+| Access control            | App checks + Postgres RLS     | Two layers so a missed UI check still cannot leak rows                                                                         |
 
 
 ---
