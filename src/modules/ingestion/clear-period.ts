@@ -11,6 +11,7 @@ import {
   sourceDocuments,
   extractionDrafts,
   extractionJobs,
+  documentSections,
 } from "@/db/schema";
 import { priorPeriodId } from "@/modules/periods/generate";
 
@@ -57,6 +58,7 @@ export async function clearPeriodPack(periodId: string): Promise<{
   await db.delete(operatingKpis).where(eq(operatingKpis.periodId, periodId));
 
   await db.delete(sourceDocuments).where(eq(sourceDocuments.periodId, periodId));
+  await db.delete(documentSections).where(eq(documentSections.periodId, periodId));
 
   const jobs = await db
     .select({ id: extractionJobs.id })

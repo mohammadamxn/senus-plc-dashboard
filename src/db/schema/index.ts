@@ -198,6 +198,7 @@ export const extractionSourceKindEnum = pgEnum("extraction_source_kind", [
 export const extractionStatusEnum = pgEnum("extraction_status", [
   "pending",
   "extracted",
+  "financials_approved",
   "approved",
   "rejected",
   "failed",
@@ -231,6 +232,22 @@ export const extractionDrafts = pgTable("extraction_drafts", {
   promptVersion: varchar("prompt_version", { length: 32 }).notNull().default("v1"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/** Approved verbatim qualitative section bodies (after financials approve). */
+export const documentSections = pgTable(
+  "document_sections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    periodId: varchar("period_id", { length: 64 })
+      .notNull()
+      .references(() => fiscalPeriods.id),
+    key: varchar("key", { length: 64 }).notNull(),
+    sourceHeading: text("source_heading").notNull().default(""),
+    body: text("body").notNull().default(""),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("document_sections_period_key_uidx").on(t.periodId, t.key)],
+);
 
 export const insightJobStatusEnum = pgEnum("insight_job_status", [
   "queued",

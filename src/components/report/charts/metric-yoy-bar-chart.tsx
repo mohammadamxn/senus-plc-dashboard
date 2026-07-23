@@ -58,11 +58,6 @@ export function MetricYoYBarChart({
     return (
       <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 px-2 text-center">
         <p className="font-mono text-2xl tabular-nums text-muted-foreground">n/m</p>
-        <p className="text-xs text-muted-foreground">
-          {metric.meaningfulness === "degenerate"
-            ? "Not meaningful while loss-making / near-zero debt service"
-            : "Presented with care — pre-profitability context"}
-        </p>
       </div>
     );
   }

@@ -37,13 +37,17 @@ For the database, authentication, and file storage, I chose **Supabase**, for a 
 
 The Claude model is configured only via `AI_MODEL` (no hardcoded default in code), so extraction and commentary can be pointed at Haiku, Sonnet, or anything else without a redeploy of model strings. Both tasks return strict JSON that has to validate against a Zod schema — which matters more here than raw creativity — and call volume is low enough (a handful of ingestions per reporting period) that a cheaper tier like Haiku is a reasonable default in env.
 
-To keep token usage (and cost) down, I deliberately avoided the "obvious" version of this pipeline:
+Extraction sends the **full PDF text** (no character slice). In one call it returns statement lines / KPIs **and** verbatim qualitative section bodies under stable keys (`chairman_statement`, `commercial_progress`, `pipeline_outlook`, `acquisitions`, `strategic_outlook`). Variable PDF headings (e.g. “Loamin Acquisition…”, “Senus 2030”) map into `acquisitions` / `strategic_outlook` while preserving `sourceHeading`.
 
-- **One call per stage, not one call per section.** Extraction is a single Claude call per uploaded PDF. Commentary is a single `generateObject` call that returns all five sections (growth, profitability, liquidity, solvency, returns) together, instead of five separate round-trips — roughly a 5x cut in repeated system-prompt and context tokens versus calling once per section.
-- **A `dataHash` guard skips the call entirely** when nothing has changed since the last successful generation, so re-opening the admin panel, or an accidental double-click, doesn't re-spend tokens producing identical output.
-- **Context sent to the model is trimmed**, not the whole document repeated per section — page text is capped, and only the current period's approved facts and metrics are included, not the full historical dataset.
-- **Arithmetic never goes into the prompt.** Margins, runway, DSCR, ROCE etc. are pre-computed and handed to Claude as already-calculated figures to narrate, which keeps prompts shorter and outputs more reliable — the model is never asked to "think through" a calculation.
-- **Zod is a hard gate, not a retry loop.** If the model's output doesn't validate, I fix it by tightening what the prompt asks for (e.g. a citation quote length limit) rather than automatically retrying, which would otherwise multiply token spend on every failure.
+Human review is two-step: approve financials first (metrics compute in TypeScript), then approve qualitative section text into `document_sections`. Insights only run after both are approved, and the commentary prompt receives precomputed metrics plus those approved section bodies — not a truncated raw-page dump.
+
+To keep token usage (and cost) down:
+
+- **One call per stage, not one call per section.** Extraction is a single Claude call per uploaded PDF. Commentary is a single `generateObject` call that returns all five report sections together.
+- **A `dataHash` guard skips the call entirely** when nothing has changed since the last successful generation.
+- **Commentary context is DB-first** — approved metrics, statement lines, and qualitative section texts — not the whole historical dataset or unbounded page scraping.
+- **Arithmetic never goes into the prompt.** Margins, runway, DSCR, ROCE etc. are pre-computed in TypeScript.
+- **Zod is a hard gate, not a retry loop.** Invalid model output is fixed by tightening prompts, not automatic retries.
 
 ## Security
 

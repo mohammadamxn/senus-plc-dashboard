@@ -10,6 +10,7 @@ import {
   sourceDocuments,
   extractionDrafts,
   extractionJobs,
+  documentSections,
 } from "./schema";
 
 config({ path: ".env.local" });
@@ -31,6 +32,7 @@ async function main() {
   await db.delete(statementLines);
   await db.delete(operatingKpis);
   await db.delete(sourceDocuments);
+  await db.delete(documentSections);
   await db.delete(extractionDrafts);
   await db.delete(extractionJobs);
 

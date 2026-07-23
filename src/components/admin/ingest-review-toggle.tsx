@@ -2,21 +2,21 @@
 
 import { cn } from "@/lib/utils";
 
-export type IngestReviewTab = "financials" | "insights";
+export type IngestReviewTab = "financials" | "qualitative";
 
 const TABS: { id: IngestReviewTab; label: string }[] = [
   { id: "financials", label: "Financials" },
-  { id: "insights", label: "Insights" },
+  { id: "qualitative", label: "Qualitative" },
 ];
 
 export function IngestReviewToggle({
   value,
   onChange,
-  insightsLocked,
+  qualitativeLocked,
 }: {
   value: IngestReviewTab;
   onChange: (tab: IngestReviewTab) => void;
-  insightsLocked?: boolean;
+  qualitativeLocked?: boolean;
 }) {
   return (
     <div
@@ -25,20 +25,23 @@ export function IngestReviewToggle({
       className="flex flex-wrap gap-1 rounded-lg border border-border bg-muted/40 p-1"
     >
       {TABS.map((tab) => {
-        const locked = tab.id === "insights" && insightsLocked;
+        const locked = tab.id === "qualitative" && qualitativeLocked;
         return (
           <button
             key={tab.id}
             type="button"
             role="tab"
             aria-selected={value === tab.id}
-            onClick={() => onChange(tab.id)}
+            disabled={locked}
+            onClick={() => {
+              if (!locked) onChange(tab.id);
+            }}
             className={cn(
               "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               value === tab.id
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
-              locked && value !== tab.id && "opacity-70",
+              locked && "cursor-not-allowed opacity-50",
             )}
           >
             {tab.label}

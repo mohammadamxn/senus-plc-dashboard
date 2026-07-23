@@ -23,7 +23,6 @@ export const CATEGORY_METRIC_IDS: Record<CategoryId, string[]> = {
   liquidity: ["cash", "monthly_burn", "cash_runway_months", "working_capital", "net_cash"],
   solvency: [
     "current_ratio",
-    "current_ratio_incl_earnout",
     "gearing",
     "net_cash",
     "equity",
@@ -38,7 +37,7 @@ export const REPORT_COMPARE_METRIC_IDS: Record<CategoryId, string[]> = {
   growth: ["revenue", "gross_profit", "admin_expenses"],
   profitability: ["gross_margin", "operating_margin", "ebitda_margin", "operating_loss", "ebitda"],
   liquidity: ["cash", "monthly_burn", "cash_runway_months", "working_capital", "net_cash"],
-  solvency: ["current_ratio", "current_ratio_incl_earnout", "gearing", "net_cash", "equity", "dscr"],
+  solvency: ["current_ratio", "gearing", "net_cash", "equity", "dscr"],
   returns: ["roce", "roe", "ebitda_margin"],
 };
 

@@ -4,12 +4,19 @@ import { useMemo, useState, useTransition } from "react";
 import {
   runPdfExtraction,
   approveExtractionJob,
+  approveQualitativeJob,
   rejectExtractionJob,
   clearPeriodData,
   updateExtractionDraft,
   type IngestActionResult,
   type AvailableReportPeriod,
 } from "@/modules/ingestion/actions";
+import {
+  QUALITATIVE_SECTION_KEYS,
+  QUALITATIVE_SECTION_LABELS,
+  type QualitativeSection,
+  type QualitativeSectionKey,
+} from "@/modules/ingestion/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,6 +48,7 @@ type DraftPayload = {
   basis?: "audited" | "unaudited" | "management";
   statementLines?: DraftLine[];
   operatingKpis?: DraftKpi[];
+  qualitativeSections?: QualitativeSection[];
   storagePath?: string;
 };
 
@@ -55,6 +63,20 @@ function packLabel(periodId: string, label: string): string {
 function parseAmount(raw: string): number {
   const n = Number(String(raw).replace(/,/g, "").trim());
   return Number.isFinite(n) ? n : 0;
+}
+
+function normalizeDraftSections(
+  sections: QualitativeSection[] | undefined,
+): QualitativeSection[] {
+  const byKey = new Map((sections ?? []).map((s) => [s.key, s]));
+  return QUALITATIVE_SECTION_KEYS.map((key) => {
+    const existing = byKey.get(key);
+    return {
+      key,
+      sourceHeading: existing?.sourceHeading ?? "",
+      body: existing?.body ?? "",
+    };
+  });
 }
 
 export function IngestPanel({
@@ -96,7 +118,13 @@ export function IngestPanel({
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<IngestActionResult | null>(null);
   const [jobId, setJobId] = useState(latestJob?.id ?? null);
-  const [draft, setDraft] = useState<DraftPayload | null>(latestJob?.draft ?? null);
+  const [draft, setDraft] = useState<DraftPayload | null>(() => {
+    if (!latestJob?.draft) return null;
+    return {
+      ...latestJob.draft,
+      qualitativeSections: normalizeDraftSections(latestJob.draft.qualitativeSections),
+    };
+  });
   const [status, setStatus] = useState(latestJob?.status ?? null);
   const [selectedPeriodId, setSelectedPeriodId] = useState(() => {
     const initial = latestJob?.periodId ?? defaultPeriodId;
@@ -106,7 +134,10 @@ export function IngestPanel({
     () => removablePeriods[0]?.id ?? defaultPeriodId,
   );
   const [addCode, setAddCode] = useState("");
-  const [reviewTab, setReviewTab] = useState<IngestReviewTab>("financials");
+  const [reviewTab, setReviewTab] = useState<IngestReviewTab>(() => {
+    if (latestJob?.status === "financials_approved") return "qualitative";
+    return "financials";
+  });
 
   const options = useMemo(() => {
     return [...hyPeriods].reverse().map((p) => {
@@ -132,11 +163,18 @@ export function IngestPanel({
     : "—";
 
   const lines = draft?.statementLines ?? [];
+  const sections = normalizeDraftSections(draft?.qualitativeSections);
   const usedCodes = useMemo(() => new Set(lines.map((l) => l.code)), [lines]);
   const availableToAdd = useMemo(
     () => lineItemOptions.filter((o) => !usedCodes.has(o.code)),
     [lineItemOptions, usedCodes],
   );
+
+  const showReview = status === "extracted" || status === "financials_approved";
+  const financialsEditable = status === "extracted";
+  const qualitativeEditable = status === "financials_approved";
+  const qualitativeLocked = status === "extracted";
+  const showInsights = status === "approved";
 
   function updateLine(index: number, patch: Partial<DraftLine>) {
     setDraft((prev) => {
@@ -166,6 +204,17 @@ export function IngestPanel({
     setAddCode("");
   }
 
+  function updateSection(key: QualitativeSectionKey, patch: Partial<QualitativeSection>) {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const current = normalizeDraftSections(prev.qualitativeSections);
+      return {
+        ...prev,
+        qualitativeSections: current.map((s) => (s.key === key ? { ...s, ...patch } : s)),
+      };
+    });
+  }
+
   function buildPayloadForSave(): DraftPayload | null {
     if (!draft?.periodId || !draft.documentTitle || !draft.basis) return null;
     if (!draft.statementLines?.length) return null;
@@ -176,6 +225,7 @@ export function IngestPanel({
       basis: draft.basis,
       statementLines: draft.statementLines,
       operatingKpis: draft.operatingKpis ?? [],
+      qualitativeSections: normalizeDraftSections(draft.qualitativeSections),
       ...(draft.storagePath ? { storagePath: draft.storagePath } : {}),
     };
   }
@@ -191,7 +241,7 @@ export function IngestPanel({
     });
   }
 
-  function onApprove() {
+  function onApproveFinancials() {
     if (!jobId) return;
     const payload = buildPayloadForSave();
     if (!payload) {
@@ -207,8 +257,29 @@ export function IngestPanel({
       const result = await approveExtractionJob(jobId);
       setMessage(result);
       if ("success" in result) {
+        setStatus("financials_approved");
+        setReviewTab("qualitative");
+      }
+    });
+  }
+
+  function onApproveQualitative() {
+    if (!jobId) return;
+    const payload = buildPayloadForSave();
+    if (!payload) {
+      setMessage({ error: "Draft is incomplete." });
+      return;
+    }
+    startTransition(async () => {
+      const saved = await updateExtractionDraft(jobId, payload);
+      if ("error" in saved) {
+        setMessage(saved);
+        return;
+      }
+      const result = await approveQualitativeJob(jobId);
+      setMessage(result);
+      if ("success" in result) {
         setStatus("approved");
-        setReviewTab("insights");
       }
     });
   }
@@ -246,9 +317,9 @@ export function IngestPanel({
         <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-5">
           <p className="font-medium text-amber-950">No financial pack loaded</p>
           <p className="mt-1 text-sm text-amber-900/80">
-            Upload a half-year results PDF to extract statement lines. After you review and approve,
-            the metrics engine will calculate Growth &amp; Revenue, Profitability, Cash &amp;
-            Liquidity, Solvency &amp; Leverage, and Returns into the database.
+            Upload a half-year results PDF to extract statement lines and qualitative sections.
+            Approve financials first (metrics calculate), then qualitative text, then generate
+            insights.
           </p>
         </div>
       )}
@@ -291,9 +362,9 @@ export function IngestPanel({
           <div>
             <h2 className="font-serif text-xl">Remove pack</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Delete live statement lines, KPIs, metrics, and extraction jobs for a loaded period.
-              Comparative prior columns are removed only if that prior was never loaded as its own
-              pack.
+              Delete live statement lines, KPIs, metrics, qualitative sections, and extraction jobs
+              for a loaded period. Comparative prior columns are removed only if that prior was
+              never loaded as its own pack.
             </p>
           </div>
           <div>
@@ -340,7 +411,7 @@ export function IngestPanel({
         </p>
       )}
 
-      {(status === "extracted" || status === "approved") && draft && (
+      {(status === "extracted" || status === "financials_approved") && draft && (
         <div className="rounded-xl border border-border bg-card p-6">
           <h2 className="font-serif text-xl">Review pack</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -351,15 +422,14 @@ export function IngestPanel({
                 · compared to <strong>{draftPriorLabel}</strong>
               </>
             ) : null}
-            . Review financials, then Approve. Commentary generates automatically with PDF page
-            citations for review under Insights.
+            . Approve financials first, then qualitative sections, then generate insights.
           </p>
 
           <div className="mt-4">
             <IngestReviewToggle
               value={reviewTab}
               onChange={setReviewTab}
-              insightsLocked={status !== "approved"}
+              qualitativeLocked={qualitativeLocked}
             />
           </div>
 
@@ -390,7 +460,7 @@ export function IngestPanel({
                               <select
                                 className="flex h-8 w-full min-w-[10rem] rounded-md border border-input bg-transparent px-2 font-mono text-xs"
                                 value={l.code}
-                                disabled={status === "approved"}
+                                disabled={!financialsEditable}
                                 onChange={(e) => updateLine(index, { code: e.target.value })}
                               >
                                 {!lineItemOptions.some((o) => o.code === l.code) && (
@@ -411,7 +481,7 @@ export function IngestPanel({
                               <Input
                                 className="h-8 tabular-nums"
                                 inputMode="decimal"
-                                disabled={status === "approved"}
+                                disabled={!financialsEditable}
                                 value={String(l.current)}
                                 onChange={(e) =>
                                   updateLine(index, { current: parseAmount(e.target.value) })
@@ -422,7 +492,7 @@ export function IngestPanel({
                               <Input
                                 className="h-8 tabular-nums"
                                 inputMode="decimal"
-                                disabled={status === "approved"}
+                                disabled={!financialsEditable}
                                 value={String(l.prior)}
                                 onChange={(e) =>
                                   updateLine(index, { prior: parseAmount(e.target.value) })
@@ -435,7 +505,7 @@ export function IngestPanel({
                                 variant="ghost"
                                 size="xs"
                                 onClick={() => removeLine(index)}
-                                disabled={status === "approved" || lines.length <= 1}
+                                disabled={!financialsEditable || lines.length <= 1}
                               >
                                 Remove
                               </Button>
@@ -447,7 +517,7 @@ export function IngestPanel({
                   </table>
                 </div>
 
-                {status === "extracted" && availableToAdd.length > 0 && (
+                {financialsEditable && availableToAdd.length > 0 && (
                   <div className="mt-4 flex flex-wrap items-end gap-2">
                     <div className="min-w-[14rem] flex-1">
                       <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -473,29 +543,62 @@ export function IngestPanel({
               </>
             )}
 
-            {reviewTab === "insights" && (
-              <IngestInsightsPanel
-                periodId={draftPrimaryId}
-                packApproved={
-                  status === "approved" ||
-                  removablePeriods.some((p) => p.id === draftPrimaryId)
-                }
-              />
+            {reviewTab === "qualitative" && (
+              <div className="space-y-6">
+                <p className="text-sm text-muted-foreground">
+                  Review the extracted section text under stable labels. Variable PDF headings (e.g.
+                  Loamin acquisition, Senus 2030) are shown as Acquisitions / Strategic Outlook.
+                </p>
+                {sections.map((section) => (
+                  <div key={section.key} className="space-y-2 rounded-lg border border-border/80 p-4">
+                    <div>
+                      <h3 className="text-sm font-semibold">
+                        {QUALITATIVE_SECTION_LABELS[section.key]}
+                      </h3>
+                      {section.sourceHeading ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Source heading: {section.sourceHeading}
+                        </p>
+                      ) : null}
+                    </div>
+                    <textarea
+                      className="min-h-[8rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                      disabled={!qualitativeEditable}
+                      value={section.body}
+                      onChange={(e) => updateSection(section.key, { body: e.target.value })}
+                    />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
-          {status === "extracted" && reviewTab === "financials" ? (
+          {financialsEditable && reviewTab === "financials" ? (
             <div className="mt-6 flex flex-wrap gap-3">
-              <Button type="button" onClick={onApprove} disabled={pending || lines.length === 0}>
-                Approve &amp; calculate metrics
+              <Button
+                type="button"
+                onClick={onApproveFinancials}
+                disabled={pending || lines.length === 0}
+              >
+                Approve financials &amp; calculate metrics
               </Button>
               <Button type="button" variant="outline" onClick={onReject} disabled={pending}>
                 Reject
               </Button>
             </div>
           ) : null}
+
+          {qualitativeEditable && reviewTab === "qualitative" ? (
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button type="button" onClick={onApproveQualitative} disabled={pending}>
+                Approve qualitative &amp; continue to insights
+              </Button>
+            </div>
+          ) : null}
         </div>
       )}
+
+      {showInsights && <IngestInsightsPanel periodId={draftPrimaryId} packApproved />}
     </div>
   );
 }

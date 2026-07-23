@@ -139,13 +139,25 @@ export function IngestInsightsPanel({
   if (!packApproved) {
     return (
       <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
-        Approve financials first. Commentary for each section is then generated automatically.
+        Approve financials and qualitative sections first. Commentary is then generated automatically.
       </div>
     );
   }
 
+  const allApproved =
+    insights.length > 0 && insights.every((r) => r.status === "approved");
+
+  if (allApproved && !generating) {
+    return null;
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="rounded-xl border border-border bg-card p-6">
+      <h2 className="font-serif text-xl">Insights</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Review generated commentary, then approve to publish on the board report.
+      </p>
+      <div className="mt-6 space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" variant="outline" onClick={onApproveAll} disabled={pending || generating}>
           {pending && !generating ? "Approving…" : "Approve all generated"}
@@ -237,6 +249,7 @@ export function IngestInsightsPanel({
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );

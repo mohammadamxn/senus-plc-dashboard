@@ -59,7 +59,7 @@ export async function generatePackCommentary(
       periodId: ctx.periodId,
       metricsBySectionJson: JSON.stringify(ctx.metricsBySection, null, 2),
       reportFactsJson: JSON.stringify(ctx.reportFacts, null, 2),
-      pagesJson: JSON.stringify(ctx.pages, null, 2),
+      sectionsJson: JSON.stringify(ctx.qualitativeSections, null, 2),
       anomalyHints: ctx.anomalyHints,
     }),
   });
@@ -139,7 +139,6 @@ export async function generateAndPersistPackInsights(
     const validated = validateCommentary({
       output,
       metrics,
-      pages: ctx.pages,
       numberAllowMetrics: allPackMetrics,
       numberAllowFacts: ctx.reportFacts,
     });

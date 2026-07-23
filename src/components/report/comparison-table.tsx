@@ -1,7 +1,6 @@
 import { formatEur, formatPct, formatPp } from "@/lib/money";
 import type { ComparisonMetric, ComparisonUnit } from "@/modules/metrics/compare";
 import { deltaSentiment } from "@/modules/metrics/delta-sentiment";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 function formatValue(
@@ -85,22 +84,6 @@ export function ComparisonTable({
               <tr key={m.id} className="border-b border-border/70 align-top">
                 <td className="py-3 pr-4 text-foreground/90">
                   <div>{m.label}</div>
-                  {m.meaningfulness === "degenerate" && (
-                    <Badge
-                      variant="outline"
-                      className="mt-1.5 border-amber-800/30 text-[10px] font-normal text-amber-800/80"
-                    >
-                      Degenerate while loss-making / near-zero debt service
-                    </Badge>
-                  )}
-                  {m.meaningfulness === "not_meaningful" && (
-                    <Badge
-                      variant="outline"
-                      className="mt-1.5 border-amber-800/30 text-[10px] font-normal text-amber-800/80"
-                    >
-                      Presented with care — pre-profitability context
-                    </Badge>
-                  )}
                 </td>
                 <td
                   className={cn(

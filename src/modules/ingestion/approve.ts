@@ -9,8 +9,12 @@ import {
   metricValues,
   extractionJobs,
   extractionDrafts,
+  documentSections,
 } from "@/db/schema";
-import type { ExtractionPayload } from "@/modules/ingestion/schema";
+import {
+  normalizeQualitativeSections,
+  type ExtractionPayload,
+} from "@/modules/ingestion/schema";
 import { computeMetrics, type StatementAmounts } from "@/modules/metrics/engine";
 import {
   buildMetricAudienceTags,
@@ -32,11 +36,11 @@ export function hyInterimDocumentId(periodId: string): string {
 }
 
 /**
- * Persist approved extraction facts, then run the deterministic metrics engine
- * and write metric_values. LLM never calculates derived KPIs here. Commentary
- * grounding comes directly from extraction_jobs.raw_text — no chunk table.
+ * Persist approved financial facts and run the deterministic metrics engine.
+ * Does not write qualitative sections — that is a second human-approve step.
+ * Sets job status to financials_approved.
  */
-export async function approveExtractionPayload(args: {
+export async function approveExtractionFinancials(args: {
   jobId: string;
   payload: ExtractionPayload;
 }): Promise<void> {
@@ -114,7 +118,6 @@ export async function approveExtractionPayload(args: {
       },
     });
 
-  // Clean up legacy extract-* document rows for this period
   const legacyDocs = await db
     .select({ id: sourceDocuments.id })
     .from(sourceDocuments)
@@ -158,8 +161,58 @@ export async function approveExtractionPayload(args: {
 
   await db
     .update(extractionJobs)
-    .set({ status: "approved", updatedAt: new Date(), error: null })
+    .set({ status: "financials_approved", updatedAt: new Date(), error: null })
     .where(eq(extractionJobs.id, jobId));
+}
+
+/**
+ * Persist approved verbatim qualitative section bodies. Requires financials
+ * already approved. Sets job status to approved.
+ */
+export async function approveExtractionQualitative(args: {
+  jobId: string;
+  payload: ExtractionPayload;
+}): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error("DATABASE_URL is not set");
+
+  const { jobId, payload } = args;
+  const periodId = payload.periodId;
+  const sections = normalizeQualitativeSections(payload.qualitativeSections);
+  const now = new Date();
+
+  for (const section of sections) {
+    await db
+      .insert(documentSections)
+      .values({
+        periodId,
+        key: section.key,
+        sourceHeading: section.sourceHeading,
+        body: section.body,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [documentSections.periodId, documentSections.key],
+        set: {
+          sourceHeading: section.sourceHeading,
+          body: section.body,
+          updatedAt: now,
+        },
+      });
+  }
+
+  await db
+    .update(extractionJobs)
+    .set({ status: "approved", updatedAt: now, error: null })
+    .where(eq(extractionJobs.id, jobId));
+}
+
+/** @deprecated Use approveExtractionFinancials — kept name for older imports. */
+export async function approveExtractionPayload(args: {
+  jobId: string;
+  payload: ExtractionPayload;
+}): Promise<void> {
+  return approveExtractionFinancials(args);
 }
 
 export async function getLatestDraftForJob(jobId: string) {

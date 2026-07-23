@@ -29,7 +29,6 @@ export const SECTION_METRIC_LABELS: Record<CategoryId, string[]> = {
   ],
   solvency: [
     "Current ratio",
-    "Current ratio (incl. contingent consideration)",
     "Gearing (bank debt / equity)",
     "Net cash / (debt)",
     "Equity",

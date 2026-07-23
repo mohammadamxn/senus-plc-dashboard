@@ -6,7 +6,9 @@ import {
   extractionPayloadSchema,
   type ExtractionPayload,
   PROMPT_VERSION,
+  QUALITATIVE_SECTION_KEYS,
 } from "@/modules/ingestion/schema";
+import { normalizeExtractionPayload } from "@/modules/ingestion/normalize-lines";
 
 const CHART_CODES = JSON.parse(
   readFileSync(path.join(process.cwd(), "content", "seed", "chart-of-accounts.json"), "utf8"),
@@ -18,7 +20,8 @@ function chartHint(): string {
 
 /**
  * Claude tool-use structured extraction. Returns Zod-validated facts only —
- * never margins, runway, or other derived metrics.
+ * never margins, runway, or other derived metrics. Also copies verbatim
+ * qualitative section bodies under known / mapped headings.
  */
 export async function extractStructuredFromText(args: {
   text: string;
@@ -37,15 +40,30 @@ export async function extractStructuredFromText(args: {
   }
   const client = new Anthropic({ apiKey });
 
+  if (args.text.length > 500_000) {
+    console.warn("[extract] unusually long PDF text", { chars: args.text.length });
+  }
+
   const toolName = "submit_financial_extraction";
-  const system = `You extract financial statement line amounts and operating KPIs from Senus PLC investor documents.
-Rules:
+  const system = `You extract financial statement line amounts, operating KPIs, and qualitative section text from Senus PLC investor documents.
+Rules for financials:
 - Map each figure to the chart-of-accounts code list provided. Use only those codes.
+- The statementLines[].code field must be the snake_case id (e.g. "interest_payable", "cf_interest_addback"), NEVER the human label. Labels like "Interest payable and similar expenses" appear on both P&L and cash flow — use interest_payable for the P&L line and cf_interest_addback for the cash-flow add-back.
 - For P&L losses shown as positive in the PDF (e.g. "Group operating loss 483,753"), store the magnitude as a positive number matching how the source table presents it when the chart uses debit convention for losses — follow the same numeric magnitudes as the statement tables.
 - Extract BOTH current period and prior comparative columns when present.
 - Do NOT compute ratios, margins, growth percentages, cash runway, DSCR, ROCE, or any derived metric — only raw line amounts and explicit narrative KPIs stated in the document.
 - periodId must be "${args.periodId}"; comparativePeriodId must be ${args.comparativePeriodId ? `"${args.comparativePeriodId}"` : "null"}.
-- basis for HY interim statutory tables is usually "unaudited"; chairman outlook KPIs use "management".`;
+- basis for HY interim statutory tables is usually "unaudited"; chairman outlook KPIs use "management".
+
+Rules for qualitativeSections (verbatim section bodies — do NOT summarise or invent):
+- Return one object per key: ${QUALITATIVE_SECTION_KEYS.join(", ")}.
+- chairman_statement: body under heading "Chairman's Statement" (or close spelling).
+- commercial_progress: body under "Commercial Progress".
+- pipeline_outlook: body under "Pipeline & Outlook".
+- acquisitions: body under the acquisition / M&A / technology-integration section — the PDF heading may vary (e.g. "Loamin Acquisition & Technology Integration"). Put the exact PDF heading in sourceHeading; use key "acquisitions".
+- strategic_outlook: body under the strategic roadmap / long-term outlook section — the PDF heading may vary (e.g. "Senus 2030"). Put the exact PDF heading in sourceHeading; use key "strategic_outlook".
+- Copy the body text from that heading until the next major heading. Preserve wording; only normalise whitespace. Empty body and empty sourceHeading if the section is absent.
+- Do not put P&L table rows into qualitativeSections.`;
 
   const user = `Source kind: ${args.sourceKind}
 Target periodId: ${args.periodId}
@@ -55,16 +73,17 @@ Chart of accounts codes (use these exact codes):
 ${chartHint()}
 
 Document text:
-${args.text.slice(0, 120_000)}`;
+${args.text}`;
 
   const response = await client.messages.create({
     model,
-    max_tokens: 8192,
+    max_tokens: 16384,
     system,
     tools: [
       {
         name: toolName,
-        description: "Submit the extracted statement lines and operating KPIs.",
+        description:
+          "Submit extracted statement lines, operating KPIs, and verbatim qualitative section bodies.",
         input_schema: {
           type: "object",
           properties: {
@@ -100,6 +119,21 @@ ${args.text.slice(0, 120_000)}`;
                 required: ["periodId", "key", "label", "value", "unit", "basis"],
               },
             },
+            qualitativeSections: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  key: {
+                    type: "string",
+                    enum: [...QUALITATIVE_SECTION_KEYS],
+                  },
+                  sourceHeading: { type: "string" },
+                  body: { type: "string" },
+                },
+                required: ["key", "body"],
+              },
+            },
           },
           required: ["periodId", "documentTitle", "basis", "statementLines"],
         },
@@ -119,12 +153,12 @@ ${args.text.slice(0, 120_000)}`;
     throw new Error(`Extraction failed Zod validation: ${parsed.error.message}`);
   }
 
-  // Force period ids from the job, not the model
-  const payload: ExtractionPayload = {
+  // Force period ids from the job; coerce labels → chart codes
+  const payload: ExtractionPayload = normalizeExtractionPayload({
     ...parsed.data,
     periodId: args.periodId,
     comparativePeriodId: args.comparativePeriodId,
-  };
+  });
 
   return { payload, model };
 }

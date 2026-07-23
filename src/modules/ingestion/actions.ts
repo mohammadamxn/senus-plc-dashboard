@@ -15,8 +15,9 @@ import {
 import { getCurrentProfile } from "@/modules/auth/session";
 import { pdfBufferToText } from "@/modules/ingestion/pdf";
 import { extractStructuredFromText, PROMPT_VERSION } from "@/modules/ingestion/extract";
-import { approveExtractionPayload } from "@/modules/ingestion/approve";
+import { approveExtractionFinancials, approveExtractionQualitative } from "@/modules/ingestion/approve";
 import { extractionPayloadSchema } from "@/modules/ingestion/schema";
+import { normalizeExtractionPayload } from "@/modules/ingestion/normalize-lines";
 import { priorPeriodId, periodsFrom } from "@/modules/periods/generate";
 import { clearPeriodPack } from "@/modules/ingestion/clear-period";
 import { markInsightsStaleForPeriod } from "@/modules/ai/stale";
@@ -261,7 +262,9 @@ export async function approveExtractionJob(jobId: string): Promise<IngestActionR
 
   const [job] = await db.select().from(extractionJobs).where(eq(extractionJobs.id, jobId)).limit(1);
   if (!job) return { error: "Job not found." };
-  if (job.status !== "extracted") return { error: `Job status is ${job.status}; only extracted drafts can be approved.` };
+  if (job.status !== "extracted") {
+    return { error: `Job status is ${job.status}; only extracted drafts can approve financials.` };
+  }
 
   const [draft] = await db
     .select()
@@ -275,16 +278,22 @@ export async function approveExtractionJob(jobId: string): Promise<IngestActionR
   if (!parsed.success) return { error: "Draft payload failed validation." };
 
   try {
-    // Financials + metrics only — DB work, returns fast so the UI can switch to
-    // the Insights tab immediately. Commentary generation happens separately
-    // (triggered by the Insights panel itself) so this action never blocks on
-    // an LLM call.
-    await approveExtractionPayload({ jobId, payload: parsed.data });
+    const payload = normalizeExtractionPayload(parsed.data);
+    await approveExtractionFinancials({
+      jobId,
+      payload,
+    });
     await markInsightsStaleForPeriod(job.periodId);
+
+    // Persist normalized codes back onto the draft so the UI shows chart ids
+    await db
+      .update(extractionDrafts)
+      .set({ payload })
+      .where(eq(extractionDrafts.id, draft.id));
 
     await db.insert(auditLog).values({
       actorUserId: admin.userId,
-      action: "extraction.approve",
+      action: "extraction.approve_financials",
       targetUserId: null,
       metadata: {
         jobId,
@@ -296,11 +305,81 @@ export async function approveExtractionJob(jobId: string): Promise<IngestActionR
     revalidatePath(`/reports/${job.periodId}`);
 
     return {
-      success: "Approved. Metrics are live — generating commentary…",
+      success: "Financials approved. Metrics are live — review qualitative sections next.",
       jobId,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Approve failed";
+    return { error: message };
+  }
+}
+
+/**
+ * Admin: approve qualitative section bodies after financials are live.
+ * Unlocks insights generation.
+ */
+export async function approveQualitativeJob(jobId: string): Promise<IngestActionResult> {
+  let admin: Awaited<ReturnType<typeof requireAdmin>>;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return { error: "Forbidden." };
+  }
+
+  const db = getDb();
+  if (!db) return { error: "Database is not configured." };
+
+  const [job] = await db.select().from(extractionJobs).where(eq(extractionJobs.id, jobId)).limit(1);
+  if (!job) return { error: "Job not found." };
+  if (job.status !== "financials_approved") {
+    return {
+      error: `Job status is ${job.status}; approve financials first, then qualitative sections.`,
+    };
+  }
+
+  const [draft] = await db
+    .select()
+    .from(extractionDrafts)
+    .where(eq(extractionDrafts.jobId, jobId))
+    .orderBy(desc(extractionDrafts.createdAt))
+    .limit(1);
+  if (!draft) return { error: "No draft found for this job." };
+
+  const parsed = extractionPayloadSchema.safeParse(draft.payload);
+  if (!parsed.success) return { error: "Draft payload failed validation." };
+
+  try {
+    const payload = normalizeExtractionPayload(parsed.data);
+    await approveExtractionQualitative({
+      jobId,
+      payload,
+    });
+    await markInsightsStaleForPeriod(job.periodId);
+
+    await db
+      .update(extractionDrafts)
+      .set({ payload })
+      .where(eq(extractionDrafts.id, draft.id));
+
+    await db.insert(auditLog).values({
+      actorUserId: admin.userId,
+      action: "extraction.approve_qualitative",
+      targetUserId: null,
+      metadata: {
+        jobId,
+        periodId: job.periodId,
+      },
+    });
+
+    revalidatePath("/admin/ingest");
+    revalidatePath(`/reports/${job.periodId}`);
+
+    return {
+      success: "Qualitative sections approved — generating commentary…",
+      jobId,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Approve qualitative failed";
     return { error: message };
   }
 }
@@ -325,8 +404,10 @@ export async function updateExtractionDraft(
 
   const [job] = await db.select().from(extractionJobs).where(eq(extractionJobs.id, jobId)).limit(1);
   if (!job) return { error: "Job not found." };
-  if (job.status !== "extracted") {
-    return { error: `Job status is ${job.status}; only extracted drafts can be edited.` };
+  if (job.status !== "extracted" && job.status !== "financials_approved") {
+    return {
+      error: `Job status is ${job.status}; only extracted or financials-approved drafts can be edited.`,
+    };
   }
 
   const parsed = extractionPayloadSchema.safeParse(payload);
@@ -334,7 +415,14 @@ export async function updateExtractionDraft(
     return { error: parsed.error.issues[0]?.message ?? "Draft failed validation." };
   }
 
-  const codes = parsed.data.statementLines.map((l) => l.code);
+  let normalized;
+  try {
+    normalized = normalizeExtractionPayload(parsed.data);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to normalize draft lines." };
+  }
+
+  const codes = normalized.statementLines.map((l) => l.code);
   if (new Set(codes).size !== codes.length) {
     return { error: "Duplicate line item codes are not allowed." };
   }
@@ -349,14 +437,18 @@ export async function updateExtractionDraft(
 
   await db
     .update(extractionDrafts)
-    .set({ payload: parsed.data })
+    .set({ payload: normalized })
     .where(eq(extractionDrafts.id, draft.id));
 
   await db.insert(auditLog).values({
     actorUserId: admin.userId,
     action: "extraction.draft_updated",
     targetUserId: null,
-    metadata: { jobId, lineCount: parsed.data.statementLines.length },
+    metadata: {
+      jobId,
+      lineCount: normalized.statementLines.length,
+      sectionCount: normalized.qualitativeSections.length,
+    },
   });
 
   return { success: "Draft updates saved." };

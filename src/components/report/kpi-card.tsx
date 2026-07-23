@@ -2,7 +2,6 @@ import { formatEur, formatPct, formatPp } from "@/lib/money";
 import type { ComparisonMetric, ComparisonUnit } from "@/modules/metrics/compare";
 import { deltaSentiment } from "@/modules/metrics/delta-sentiment";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 function formatValue(
@@ -109,13 +108,6 @@ export function ComparisonKpiCard({
             </p>
           </div>
         </div>
-        {muted && (
-          <Badge variant="outline" className="border-amber-800/30 text-amber-800/80">
-            {metric.meaningfulness === "degenerate"
-              ? "Degenerate while loss-making / near-zero debt service"
-              : "Presented with care — pre-profitability context"}
-          </Badge>
-        )}
       </CardContent>
     </Card>
   );

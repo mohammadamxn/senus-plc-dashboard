@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const COMMENTARY_PROMPT_VERSION = "v4";
+export const COMMENTARY_PROMPT_VERSION = "v5";
 
 export const commentaryOutputSchema = z.object({
   body: z.string().min(40).max(4000),
@@ -56,7 +56,7 @@ export type ValidationResult =
 export function validateCommentary(args: {
   output: CommentaryOutput;
   metrics: MetricContextItem[];
-  pages: PageContextItem[];
+  pages?: PageContextItem[];
   numberAllowMetrics?: MetricContextItem[];
   numberAllowFacts?: ReportFactItem[];
 }): ValidationResult {

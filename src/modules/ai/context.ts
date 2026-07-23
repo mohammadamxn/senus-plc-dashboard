@@ -1,9 +1,9 @@
 import "server-only";
 import { createHash } from "crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import {
-  extractionJobs,
+  documentSections,
   lineItemDefs,
   metricDefs,
   metricValues,
@@ -17,21 +17,20 @@ import {
 } from "@/config/metric-categories";
 import { priorPeriodId } from "@/modules/periods/generate";
 import { COMMENTARY_PROMPT_VERSION } from "@/modules/ai/validate";
-import type {
-  PageContextItem,
-  MetricContextItem,
-  ReportFactItem,
-} from "@/modules/ai/validate";
-
-/** Rough token budget for page text (~4 chars/token). */
-const PAGE_CHAR_BUDGET = 24_000;
+import type { MetricContextItem, ReportFactItem } from "@/modules/ai/validate";
+import {
+  QUALITATIVE_SECTION_LABELS,
+  type QualitativeSection,
+  type QualitativeSectionKey,
+} from "@/modules/ingestion/schema";
 
 export type PackCommentaryContext = {
   periodId: string;
   metricsBySection: Record<CategoryId, MetricContextItem[]>;
   /** Approved statement lines + operating KPIs (report financials). */
   reportFacts: ReportFactItem[];
-  pages: PageContextItem[];
+  /** Approved verbatim qualitative section bodies. */
+  qualitativeSections: QualitativeSection[];
   anomalyHints: string[];
   dataHash: string;
   promptVersion: string;
@@ -53,7 +52,7 @@ function anomalyHintsFor(section: CategoryId, metrics: MetricContextItem[]): str
     const adminPct = admin?.deltaPct != null ? Number(admin.deltaPct) : null;
     if (revPct != null && adminPct != null && adminPct > revPct + 5) {
       hints.push(
-        "Admin expense growth appears to outpace revenue growth — explain using the cited metrics, statement lines, and page excerpts only.",
+        "Admin expense growth appears to outpace revenue growth — explain using the cited metrics, statement lines, and qualitative sections only.",
       );
     }
   }
@@ -201,56 +200,29 @@ async function loadReportFacts(periodId: string): Promise<ReportFactItem[]> {
   return facts;
 }
 
-/** Split "--- page N ---\n<text>" blocks (written by pdfBufferToText) back into pages. */
-function parsePagesFromRawText(rawText: string): { pageRef: string; text: string }[] {
-  const pages: { pageRef: string; text: string }[] = [];
-  const re = /--- page (\d+) ---\n?/g;
-  const markers: { page: string; index: number; end: number }[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(rawText)) != null) {
-    markers.push({ page: m[1]!, index: m.index, end: m.index + m[0].length });
-  }
-  for (let i = 0; i < markers.length; i++) {
-    const start = markers[i]!.end;
-    const end = i + 1 < markers.length ? markers[i + 1]!.index : rawText.length;
-    const text = rawText.slice(start, end).trim();
-    if (text.length > 0) pages.push({ pageRef: `p.${markers[i]!.page}`, text });
-  }
-  return pages;
-}
-
-/**
- * Load the period's approved source PDF text (captured at upload time) and split
- * it back into page-tagged blocks, bounded to the same char budget the old
- * chunk-based context used.
- */
-async function loadPackPages(periodId: string): Promise<PageContextItem[]> {
+async function loadQualitativeSections(periodId: string): Promise<QualitativeSection[]> {
   const db = getDb();
   if (!db) return [];
 
-  const [job] = await db
-    .select({ rawText: extractionJobs.rawText })
-    .from(extractionJobs)
-    .where(and(eq(extractionJobs.periodId, periodId), eq(extractionJobs.status, "approved")))
-    .orderBy(desc(extractionJobs.updatedAt))
-    .limit(1);
+  const rows = await db
+    .select({
+      key: documentSections.key,
+      sourceHeading: documentSections.sourceHeading,
+      body: documentSections.body,
+    })
+    .from(documentSections)
+    .where(eq(documentSections.periodId, periodId));
 
-  if (!job?.rawText) return [];
-
-  const pages = parsePagesFromRawText(job.rawText);
-  const bounded: PageContextItem[] = [];
-  let used = 0;
-  for (const p of pages) {
-    if (used + p.text.length > PAGE_CHAR_BUDGET) break;
-    bounded.push(p);
-    used += p.text.length;
-  }
-  return bounded;
+  return rows.map((r) => ({
+    key: r.key as QualitativeSectionKey,
+    sourceHeading: r.sourceHeading || QUALITATIVE_SECTION_LABELS[r.key as QualitativeSectionKey] || r.key,
+    body: r.body,
+  }));
 }
 
 /**
  * Full-pack context for a single commentary API call
- * (metrics + statement lines / KPIs + shared page text).
+ * (metrics + statement lines / KPIs + approved qualitative sections).
  */
 export async function assemblePackCommentaryContext(
   periodId: string,
@@ -266,10 +238,16 @@ export async function assemblePackCommentaryContext(
     }
   }
 
-  const [pages, reportFacts] = await Promise.all([
-    loadPackPages(periodId),
+  const [qualitativeSections, reportFacts] = await Promise.all([
+    loadQualitativeSections(periodId),
     loadReportFacts(periodId),
   ]);
+
+  if (qualitativeSections.length === 0) {
+    throw new Error(
+      "Qualitative sections are not approved yet — approve qualitative text before generating insights.",
+    );
+  }
 
   const hashInput = JSON.stringify({
     metrics: Object.fromEntries(
@@ -279,7 +257,7 @@ export async function assemblePackCommentaryContext(
       ]),
     ),
     reportFacts: reportFacts.map((f) => [f.code, f.value, f.priorValue]),
-    pages: pages.map((p) => `${p.pageRef}:${p.text.length}`),
+    qualitativeSections: qualitativeSections.map((s) => [s.key, s.sourceHeading, s.body]),
     promptVersion: COMMENTARY_PROMPT_VERSION,
   });
   const dataHash = createHash("sha256").update(hashInput).digest("hex").slice(0, 32);
@@ -288,14 +266,14 @@ export async function assemblePackCommentaryContext(
     periodId,
     metricsBySection,
     reportFacts,
-    pages,
+    qualitativeSections,
     anomalyHints,
     dataHash,
     promptVersion: COMMENTARY_PROMPT_VERSION,
   };
 }
 
-/** True when the period has live statement lines (pack approved). */
+/** True when the period has live statement lines (financials approved). */
 export async function periodHasApprovedPack(periodId: string): Promise<boolean> {
   const db = getDb();
   if (!db) return false;
@@ -303,6 +281,18 @@ export async function periodHasApprovedPack(periodId: string): Promise<boolean> 
     .select({ id: statementLines.id })
     .from(statementLines)
     .where(eq(statementLines.periodId, periodId))
+    .limit(1);
+  return Boolean(row);
+}
+
+/** True when qualitative sections have been approved for the period. */
+export async function periodHasApprovedQualitative(periodId: string): Promise<boolean> {
+  const db = getDb();
+  if (!db) return false;
+  const [row] = await db
+    .select({ id: documentSections.id })
+    .from(documentSections)
+    .where(eq(documentSections.periodId, periodId))
     .limit(1);
   return Boolean(row);
 }
