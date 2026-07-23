@@ -238,7 +238,7 @@ export async function runPdfExtraction(formData: FormData): Promise<IngestAction
     // Anthropic SDK often stringifies the whole JSON body — surface the useful bit.
     const modelNotFound = message.match(/model:\s*([a-z0-9-]+)/i);
     if (message.includes("not_found_error") && modelNotFound) {
-      message = `Claude model "${modelNotFound[1]}" is not available on this API key. Set AI_MODEL in .env.local (e.g. claude-sonnet-4-6) and retry.`;
+      message = `Claude model "${modelNotFound[1]}" is not available on this API key. Update AI_MODEL and retry.`;
     }
     await db
       .update(extractionJobs)

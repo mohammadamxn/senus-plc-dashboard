@@ -43,7 +43,7 @@ npm run db:reset-facts   # clear financial facts (keeps auth + chart/periods) to
 | Var | Purpose |
 |---|---|
 | `CLAUDE_API_KEY` / `ANTHROPIC_API_KEY` | Extraction, commentary |
-| `AI_MODEL` | Optional model id (default `claude-sonnet-4-6`) |
+| `AI_MODEL` | Required Claude model id (e.g. `claude-haiku-4-5`) |
 
 Optional: create a Supabase Storage bucket `hy-interims` so extract can store the PDF (`source_documents.storage_path`). Extract still works if the bucket is missing.
 

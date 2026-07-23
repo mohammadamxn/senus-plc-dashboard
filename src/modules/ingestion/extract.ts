@@ -31,7 +31,10 @@ export async function extractStructuredFromText(args: {
     throw new Error("CLAUDE_API_KEY (or ANTHROPIC_API_KEY) is not set");
   }
 
-  const model = process.env.AI_MODEL ?? "claude-sonnet-4-6";
+  const model = process.env.AI_MODEL;
+  if (!model) {
+    throw new Error("AI_MODEL is not set");
+  }
   const client = new Anthropic({ apiKey });
 
   const toolName = "submit_financial_extraction";

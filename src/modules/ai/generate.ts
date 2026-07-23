@@ -37,8 +37,9 @@ export type PackCommentaryResult = {
 function anthropicModel() {
   const apiKey = process.env.CLAUDE_API_KEY ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("CLAUDE_API_KEY (or ANTHROPIC_API_KEY) is not set");
+  const modelId = process.env.AI_MODEL;
+  if (!modelId) throw new Error("AI_MODEL is not set");
   const anthropic = createAnthropic({ apiKey });
-  const modelId = process.env.AI_MODEL ?? "claude-sonnet-4-6";
   return { model: anthropic(modelId), modelId };
 }
 
