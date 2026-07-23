@@ -39,6 +39,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# env files (never commit real secrets — keep `.env.example` only)
+.env
+.env.*
+!.env.example
+
 # local reference copies of source PDFs (production copies live in Supabase Storage;
 # extracted text + citations live in content/seed/documents/corpus.json, which IS committed)
 /content/seed/documents/raw/
