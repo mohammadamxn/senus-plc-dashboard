@@ -17,6 +17,7 @@ import { buildComparisonMetrics, type ComparisonMetric } from "@/modules/metrics
 import type { Db } from "@/db/client";
 import { companies, fiscalPeriods, lineItemDefs, statementLines, operatingKpis } from "@/db/schema";
 import { withAudienceScope } from "@/modules/auth/db-scope";
+import { loadChartOfAccounts } from "@/modules/ingestion/chart";
 import type { AudienceId } from "@/config/site";
 
 function seedPath(...parts: string[]) {
@@ -183,10 +184,10 @@ function buildChartData(lines: StatementAmounts, currentLabel: string, priorLabe
   };
 }
 
-export function loadReportFromSeed(periodId = "hy2026"): ReportBundle {
+export async function loadReportFromSeed(periodId = "hy2026"): Promise<ReportBundle> {
   const company = readJson<{ legalName: string }>("company.json");
   const periods = readJson<PeriodMeta[]>("periods.json");
-  const chart = readJson<{ code: string; label: string; isSubtotal?: boolean }[]>("chart-of-accounts.json");
+  const chart = await loadChartOfAccounts();
   const kpis = readJson<OperatingKpi[]>("operating-kpis.json");
   const statement = readJson<{
     periodId: string;
@@ -363,5 +364,5 @@ export async function loadReport(periodId = "hy2026", audience: AudienceId): Pro
   if (process.env.RUNTIME_DATABASE_URL) {
     return await withAudienceScope(audience, (tx) => loadReportFromDb(tx, periodId));
   }
-  return loadReportFromSeed(periodId);
+  return await loadReportFromSeed(periodId);
 }

@@ -11,7 +11,7 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import type { ExtractionPayload } from "@/modules/ingestion/schema";
 import { syncFiscalPeriods } from "@/modules/periods/sync";
 import { priorPeriodId } from "@/modules/periods/generate";
-import chartOfAccounts from "@/../content/seed/chart-of-accounts.json";
+import { loadChartOfAccounts } from "@/modules/ingestion/chart";
 
 export default async function AdminIngestPage({
   searchParams,
@@ -25,9 +25,10 @@ export default async function AdminIngestPage({
   const periods = await syncFiscalPeriods(new Date());
 
   const sp = await searchParams;
-  const [lineCount, loadedPeriods] = await Promise.all([
+  const [lineCount, loadedPeriods, chart] = await Promise.all([
     countStatementLines(),
     listRemovableReportPeriods(),
+    loadChartOfAccounts(),
   ]);
   const jobView = sp.job
     ? await getExtractionJobWithDraft(sp.job)
@@ -40,7 +41,7 @@ export default async function AdminIngestPage({
     draftPayload?.comparativePeriodId ??
     priorPeriodId(periodId);
 
-  const lineItemOptions = chartOfAccounts.map((c) => ({ code: c.code, label: c.label }));
+  const lineItemOptions = chart.map((c) => ({ code: c.code, label: c.label }));
 
   return (
     <AdminShell

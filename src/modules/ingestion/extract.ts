@@ -1,22 +1,13 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
-import { readFileSync } from "fs";
-import path from "path";
 import {
   extractionPayloadSchema,
   type ExtractionPayload,
   PROMPT_VERSION,
   QUALITATIVE_SECTION_KEYS,
 } from "@/modules/ingestion/schema";
+import { formatChartHint, loadChartOfAccounts } from "@/modules/ingestion/chart";
 import { normalizeExtractionPayload } from "@/modules/ingestion/normalize-lines";
-
-const CHART_CODES = JSON.parse(
-  readFileSync(path.join(process.cwd(), "content", "seed", "chart-of-accounts.json"), "utf8"),
-) as { code: string; label: string; statement: string }[];
-
-function chartHint(): string {
-  return CHART_CODES.map((c) => `${c.code} (${c.statement}): ${c.label}`).join("\n");
-}
 
 /**
  * Claude tool-use structured extraction. Returns Zod-validated facts only —
@@ -44,6 +35,7 @@ export async function extractStructuredFromText(args: {
     console.warn("[extract] unusually long PDF text", { chars: args.text.length });
   }
 
+  const chart = await loadChartOfAccounts();
   const toolName = "submit_financial_extraction";
   const system = `You extract financial statement line amounts, operating KPIs, and qualitative section text from Senus PLC investor documents.
 Rules for financials:
@@ -70,7 +62,7 @@ Target periodId: ${args.periodId}
 Comparative periodId: ${args.comparativePeriodId ?? "none"}
 
 Chart of accounts codes (use these exact codes):
-${chartHint()}
+${formatChartHint(chart)}
 
 Document text:
 ${args.text}`;
@@ -154,11 +146,14 @@ ${args.text}`;
   }
 
   // Force period ids from the job; coerce labels → chart codes
-  const payload: ExtractionPayload = normalizeExtractionPayload({
-    ...parsed.data,
-    periodId: args.periodId,
-    comparativePeriodId: args.comparativePeriodId,
-  });
+  const payload: ExtractionPayload = normalizeExtractionPayload(
+    {
+      ...parsed.data,
+      periodId: args.periodId,
+      comparativePeriodId: args.comparativePeriodId,
+    },
+    chart,
+  );
 
   return { payload, model };
 }

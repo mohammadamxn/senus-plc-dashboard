@@ -17,6 +17,7 @@ import { pdfBufferToText } from "@/modules/ingestion/pdf";
 import { extractStructuredFromText, PROMPT_VERSION } from "@/modules/ingestion/extract";
 import { approveExtractionFinancials, approveExtractionQualitative } from "@/modules/ingestion/approve";
 import { extractionPayloadSchema } from "@/modules/ingestion/schema";
+import { loadChartOfAccounts } from "@/modules/ingestion/chart";
 import { normalizeExtractionPayload } from "@/modules/ingestion/normalize-lines";
 import { priorPeriodId, periodsFrom } from "@/modules/periods/generate";
 import { clearPeriodPack } from "@/modules/ingestion/clear-period";
@@ -278,7 +279,8 @@ export async function approveExtractionJob(jobId: string): Promise<IngestActionR
   if (!parsed.success) return { error: "Draft payload failed validation." };
 
   try {
-    const payload = normalizeExtractionPayload(parsed.data);
+    const chart = await loadChartOfAccounts();
+    const payload = normalizeExtractionPayload(parsed.data, chart);
     await approveExtractionFinancials({
       jobId,
       payload,
@@ -349,7 +351,8 @@ export async function approveQualitativeJob(jobId: string): Promise<IngestAction
   if (!parsed.success) return { error: "Draft payload failed validation." };
 
   try {
-    const payload = normalizeExtractionPayload(parsed.data);
+    const chart = await loadChartOfAccounts();
+    const payload = normalizeExtractionPayload(parsed.data, chart);
     await approveExtractionQualitative({
       jobId,
       payload,
@@ -417,7 +420,8 @@ export async function updateExtractionDraft(
 
   let normalized;
   try {
-    normalized = normalizeExtractionPayload(parsed.data);
+    const chart = await loadChartOfAccounts();
+    normalized = normalizeExtractionPayload(parsed.data, chart);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to normalize draft lines." };
   }
